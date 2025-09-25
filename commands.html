@@ -10,7 +10,7 @@
     function openUrl(url) {
       try {
         // Try using Office UI displayDialogAsync for better UX inside Excel
-        Office.context.ui.displayDialogAsync(url, { height: 60, width: 40, displayInIframe: true }, function (asyncResult) {
+        Office.context.ui.displayDialogAsync(url, { height: 80, width: 80, displayInIframe: true }, function (asyncResult) {
           if (asyncResult.status !== Office.AsyncResultStatus.Succeeded) {
             // Fallback to opening in a new tab
             window.open(url, "_blank");

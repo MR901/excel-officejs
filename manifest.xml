@@ -10,11 +10,13 @@
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="FogLAMP Data Link" />
   <Description DefaultValue="A FogLAMP Data Link App." />
-  <IconUrl DefaultValue="https://mr901.github.io/excel-officejs/icons/icon-32.png" />
-  <HighResolutionIconUrl DefaultValue="https://mr901.github.io/excel-officejs/icons/icon-64.png" />
+  <IconUrl DefaultValue="https://mr901.github.io/excel-officejs/icons/datalink/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://mr901.github.io/excel-officejs/icons/datalink/icon-64.png" />
   <SupportUrl DefaultValue="https://dianomic.com/contact-us" />
   <AppDomains>
     <AppDomain>https://mr901.github.io/excel-officejs/</AppDomain>
+    <AppDomain>https://foglamp.dianomic.com/</AppDomain>
+    <AppDomain>https://dianomic.com/</AppDomain>
   </AppDomains>
   <Hosts>
     <Host Name="Workbook" />
@@ -24,6 +26,11 @@
   </DefaultSettings>
   <Permissions>ReadWriteDocument</Permissions>
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Requirements>
+      <bt:Sets DefaultMinVersion="1.1">
+        <bt:Set Name="RibbonApi" />
+      </bt:Sets>
+    </Requirements>
     <Hosts>
       <Host xsi:type="Workbook">
         <DesktopFormFactor>
@@ -76,9 +83,9 @@
                     <Description resid="DocsButton.Tooltip" />
                   </Supertip>
                   <Icon>
-                    <bt:Image size="16" resid="Icon.16x16" />
-                    <bt:Image size="32" resid="Icon.32x32" />
-                    <bt:Image size="80" resid="Icon.80x80" />
+                    <bt:Image size="16" resid="DocsIcon.16x16" />
+                    <bt:Image size="32" resid="DocsIcon.32x32" />
+                    <bt:Image size="80" resid="DocsIcon.80x80" />
                   </Icon>
                   <Action xsi:type="ExecuteFunction">
                     <FunctionName>openDocumentation</FunctionName>
@@ -92,9 +99,9 @@
                     <Description resid="ContactButton.Tooltip" />
                   </Supertip>
                   <Icon>
-                    <bt:Image size="16" resid="Icon.16x16" />
-                    <bt:Image size="32" resid="Icon.32x32" />
-                    <bt:Image size="80" resid="Icon.80x80" />
+                    <bt:Image size="16" resid="ContactIcon.16x16" />
+                    <bt:Image size="32" resid="ContactIcon.32x32" />
+                    <bt:Image size="80" resid="ContactIcon.80x80" />
                   </Icon>
                   <Action xsi:type="ExecuteFunction">
                     <FunctionName>openContact</FunctionName>
@@ -112,9 +119,16 @@
 
     <Resources>
       <bt:Images>
-        <bt:Image id="Icon.16x16" DefaultValue="https://mr901.github.io/excel-officejs/icons/icon-16.png" />
-        <bt:Image id="Icon.32x32" DefaultValue="https://mr901.github.io/excel-officejs/icons/icon-32.png" />
-        <bt:Image id="Icon.80x80" DefaultValue="https://mr901.github.io/excel-officejs/icons/icon-80.png" />
+        <bt:Image id="Icon.16x16" DefaultValue="https://mr901.github.io/excel-officejs/icons/datalink/icon-16.png" />
+        <bt:Image id="Icon.32x32" DefaultValue="https://mr901.github.io/excel-officejs/icons/datalink/icon-32.png" />
+        <bt:Image id="Icon.80x80" DefaultValue="https://mr901.github.io/excel-officejs/icons/datalink/icon-80.png" />
+        <!-- Ribbon button icons -->
+        <bt:Image id="DocsIcon.16x16" DefaultValue="https://mr901.github.io/excel-officejs/icons/reference_doc/icon-16.png" />
+        <bt:Image id="DocsIcon.32x32" DefaultValue="https://mr901.github.io/excel-officejs/icons/reference_doc/icon-32.png" />
+        <bt:Image id="DocsIcon.80x80" DefaultValue="https://mr901.github.io/excel-officejs/icons/reference_doc/icon-80.png" />
+        <bt:Image id="ContactIcon.16x16" DefaultValue="https://mr901.github.io/excel-officejs/icons/contact_us/icon-16.png" />
+        <bt:Image id="ContactIcon.32x32" DefaultValue="https://mr901.github.io/excel-officejs/icons/contact_us/icon-32.png" />
+        <bt:Image id="ContactIcon.80x80" DefaultValue="https://mr901.github.io/excel-officejs/icons/contact_us/icon-80.png" />
       </bt:Images>
       <bt:Urls>
         <!-- This must point to the HTML document with the task pane -->
@@ -125,8 +139,8 @@
         <bt:String id="MyTab.TabLabel" DefaultValue="DataLink" />
         <bt:String id="MyCommandsGroup.Label" DefaultValue="MyGroup" />
         <bt:String id="MyTaskpaneButton.Label" DefaultValue="Show Taskpane" />
-        <bt:String id="HelpGroup.Label" DefaultValue="Help & Links" />
-        <bt:String id="DocsButton.Label" DefaultValue="Documentation" />
+        <bt:String id="HelpGroup.Label" DefaultValue="Help &amp; Links" />
+        <bt:String id="DocsButton.Label" DefaultValue="Reference Doc" />
         <bt:String id="ContactButton.Label" DefaultValue="Contact Us" />
       </bt:ShortStrings>
       <bt:LongStrings>

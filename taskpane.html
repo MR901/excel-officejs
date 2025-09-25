@@ -6,57 +6,98 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>My Taskpane</title>
     <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <style>
+        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size: 13px; margin: 12px; }
+        details { border: 1px solid #e1e4e8; border-radius: 6px; padding: 8px 10px; background: #fff; margin-bottom: 10px; }
+        summary { font-weight: 600; cursor: pointer; outline: none; }
+        summary::-webkit-details-marker { display: none; }
+        .section-content { margin-top: 8px; }
+        .row { margin-bottom: 8px; }
+        .row label { font-weight: 600; }
+        input[type="text"], input[type="number"], select { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 6px 10px; border: 1px solid #d0d7de; background: #f6f8fa; border-radius: 6px; cursor: pointer; }
+        button:hover { background: #eef1f4; }
+        .btn-row > button { margin-right: 6px; }
+        .muted { color: #57606a; }
+        .info { font-weight: 600; margin-left: 6px; cursor: help; }
+        .stack { display: flex; gap: 8px; flex-wrap: wrap; }
+        .stack > * { flex: 1 1 auto; }
+        .small { font-size: 12px; }
+        .code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+        hr { border: none; border-top: 1px solid #e1e4e8; margin: 12px 0; }
+    </style>
 </head>
 
 <body>
-    <!-- Demo button from template -->
-    <p>Hit the Run button to paint the selected cells yellow and write the address to cell A1!</p>
-    <button id="run-btn" type="button">Run</button>
-
-    <hr />
-
-    <!-- FogLAMP DataLink prototype UI -->
-    <h3>FogLAMP DataLink</h3>
-    <div style="margin-bottom: 8px;">
-        <label for="fl-base-url">FogLAMP Base URL (HTTP only for now):</label><br />
-        <input id="fl-base-url" type="text" placeholder="http://127.0.0.1:8081" style="width: 100%;" />
-        <div style="margin-top: 6px;">
-            <button id="fl-register" type="button">Register</button>
-            <button id="fl-ping" type="button">Ping</button>
+    <!-- FogLAMP DataLink UI (grouped + collapsible) -->
+    <details open>
+        <summary>FogLAMP Instances <span class="muted small">(register, select, ping)</span></summary>
+        <div class="section-content">
+            <div class="row">
+                <label for="fl-base-url">FogLAMP Base URL <span class="info" title="HTTP only for now. Example: http://127.0.0.1:8081">ℹ️</span></label>
+                <input id="fl-base-url" type="text" placeholder="http://127.0.0.1:8081" />
+                <div class="btn-row" style="margin-top: 6px;">
+                    <button id="fl-register" type="button" title="Save this FogLAMP URL and set it active">Register</button>
+                    <button id="fl-ping" type="button" title="Ping the active FogLAMP instance">Ping</button>
+                </div>
+            </div>
+            <div class="row">
+                <label for="fl-list">Registered Instances <span class="info" title="Select which FogLAMP instance should be active for actions">ℹ️</span></label>
+                <div class="stack">
+                    <select id="fl-list"></select>
+                    <div class="btn-row" style="align-self: center;">
+                        <button id="fl-set-active" type="button" title="Make the selected instance active">Set Active</button>
+                        <button id="fl-refresh-list" type="button" title="Reload the list from storage">Refresh List</button>
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
+    </details>
 
-    <div style="margin-bottom: 8px;">
-        <label for="fl-list">Registered FogLAMP instances:</label><br />
-        <select id="fl-list" style="width: 100%;"></select>
-        <div style="margin-top: 6px;">
-            <button id="fl-set-active" type="button">Set Active</button>
-            <button id="fl-refresh-list" type="button">Refresh List</button>
+    <details open>
+        <summary>Status <span class="muted small">(ping, statistics, assets → sheet)</span></summary>
+        <div class="section-content">
+            <div class="row">
+                <button id="fl-write-status" type="button" title="Writes ping, statistics, and assets to the 'foglamp status' sheet">Write FogLAMP Status to sheet "foglamp status"</button>
+            </div>
         </div>
-    </div>
+    </details>
 
-    <div style="margin-bottom: 8px;">
-        <button id="fl-write-status" type="button">Write FogLAMP Status to sheet "foglamp status"</button>
-    </div>
+    <details open>
+        <summary>Asset Readings <span class="muted small">(fetch → sheet)</span></summary>
+        <div class="section-content">
+            <div class="row">
+                <label for="fl-asset">Asset <span class="info" title="Asset name as shown by the assets API">ℹ️</span></label>
+                <input id="fl-asset" type="text" placeholder="e.g. sinusoid" />
+            </div>
+            <div class="row">
+                <label for="fl-datapoint">Datapoint (optional) <span class="info" title="Leave empty to retrieve all datapoints for the asset">ℹ️</span></label>
+                <input id="fl-datapoint" type="text" placeholder="e.g. value (leave empty for all)" />
+            </div>
+            <div class="row">
+                <label for="fl-limit">Limit <span class="info" title="Number of latest readings to return (1-10000)">ℹ️</span></label>
+                <input id="fl-limit" type="number" min="1" max="10000" value="60" />
+            </div>
+            <div class="row">
+                <button id="fl-get-readings" type="button" title="Writes readings to a sheet named 'asset reading - <asset>'">Get Readings → sheet "asset reading - &lt;asset&gt;"</button>
+            </div>
+        </div>
+    </details>
 
-    <fieldset style="margin-top: 8px;">
-        <legend>Get Readings for Asset</legend>
-        <div style="margin-bottom: 6px;">
-            <label for="fl-asset">Asset:</label><br />
-            <input id="fl-asset" type="text" placeholder="e.g. sinusoid" style="width: 100%;" />
+    <details>
+        <summary>Output <span class="muted small">(logs & messages)</span></summary>
+        <div class="section-content">
+            <pre id="fl-status" style="white-space: pre-wrap; background:#f6f8fa; padding:8px; border:1px solid #e1e4e8;"></pre>
         </div>
-        <div style="margin-bottom: 6px;">
-            <label for="fl-datapoint">Datapoint (optional):</label><br />
-            <input id="fl-datapoint" type="text" placeholder="e.g. value (leave empty for all)" style="width: 100%;" />
-        </div>
-        <div style="margin-bottom: 6px;">
-            <label for="fl-limit">Limit:</label><br />
-            <input id="fl-limit" type="number" min="1" max="10000" value="60" style="width: 100%;" />
-        </div>
-        <button id="fl-get-readings" type="button">Get Readings → sheet "asset reading - &lt;asset&gt;"</button>
-    </fieldset>
+    </details>
 
-    <pre id="fl-status" style="white-space: pre-wrap; background:#f6f8fa; padding:8px; margin-top:10px; border:1px solid #e1e4e8;"></pre>
+    <details>
+        <summary>Demo <span class="muted small">(template sample)</span></summary>
+        <div class="section-content">
+            <p>Hit the Run button to paint the selected cells yellow and write the address to cell A1!</p>
+            <button id="run-btn" type="button">Run</button>
+        </div>
+    </details>
     <script>
         // Initialize Office.js
         Office.onReady(function (info) { });

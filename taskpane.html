@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>My Taskpane</title>
+    <title>FogLAMP Data Link</title>
     <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
     <style>
         body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; font-size: 13px; margin: 12px; }
@@ -19,34 +19,43 @@
         button:hover { background: #eef1f4; }
         .btn-row > button { margin-right: 6px; }
         .muted { color: #57606a; }
-        .info { font-weight: 600; margin-left: 6px; cursor: help; color: #9ca3af; font-size: 11px; line-height: 1; vertical-align: middle; }
+        .info { display:inline-flex; align-items:center; margin-left: 6px; cursor: help; color: #9ca3af; font-size: 11px; line-height: 1; vertical-align: middle; }
+        .info img { height: 12px; width: 12px; opacity: 0.9; }
         .stack { display: flex; gap: 8px; flex-wrap: wrap; }
         .stack > * { flex: 1 1 auto; }
         .small { font-size: 12px; }
         .code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
         hr { border: none; border-top: 1px solid #e1e4e8; margin: 12px 0; }
+        /* Brand header */
+        .brand-header { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+        .brand-header img { height: 22px; width: auto; }
+        .brand-header h3 { margin: 0; font-size: 14px; font-weight: 700; }
         /* Console dock (fixed bottom, resizable) */
-        .console-dock { position: fixed; left: 0; right: 0; bottom: 0; background: #111827; border-top: 1px solid #1f2937; z-index: 9999; }
-        .console-dock .console-resizer { height: 6px; cursor: ns-resize; background: #1f2937; }
+        .console-dock { position: fixed; left: 0; right: 0; bottom: 0; background: #0b0f17; border-top: 1px solid #232b3a; z-index: 9999; }
+        .console-dock .console-resizer { height: 6px; cursor: ns-resize; background: #232b3a; }
         .console-dock .console-header { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; color: #e5e7eb; }
         .console-dock .console-title { font-weight: 600; }
         .console-dock .console-actions { display: inline-flex; align-items: center; gap: 8px; }
-        .console-dock .console-toggle { background: transparent; color: #e5e7eb; border: 1px solid #374151; border-radius: 4px; padding: 2px 6px; cursor: pointer; }
-        .console-dock .console-toggle:hover { background: #1f2937; }
+        .console-dock .console-toggle { background: transparent; color: #e5e7eb; border: 1px solid #3a465d; border-radius: 4px; padding: 2px 6px; cursor: pointer; }
+        .console-dock .console-toggle:hover { background: #1b2230; }
         .console-dock .console-content { height: var(--console-height, 200px); overflow: auto; padding: 8px; }
         .console-dock.collapsed .console-content { display: none; }
         .live-badge { display: inline-block; background: #16a34a; color: #ffffff; border-radius: 999px; padding: 2px 8px; font-size: 11px; margin-left: 8px; vertical-align: middle; }
-        .status-pre { white-space: pre-wrap; background:#000000; color:#ffffff; padding:8px; border:1px solid #333333; border-radius:6px; min-height:120px; max-height:300px; overflow:auto; }
+        .status-pre { white-space: pre-wrap; background:#0a0a0a; color:#f5f5f5; padding:8px; border:1px solid #1f1f1f; border-radius:6px; min-height:120px; max-height:300px; overflow:auto; }
     </style>
 </head>
 
 <body>
+    <div class="brand-header">
+        <img src="icons/icon_horizontal.png" alt="FogLAMP Data Link" onerror="this.style.display='none'" />
+        <h3>FogLAMP Data Link</h3>
+    </div>
     <!-- FogLAMP DataLink UI (grouped + collapsible) -->
     <details open>
         <summary>Register FogLAMP Instance</summary>
         <div class="section-content">
             <div class="row">
-                <label for="fl-base-url">FogLAMP Base URL <span class="info" title="Example: http://127.0.0.1:8081">ℹ️</span></label>
+                <label for="fl-base-url">FogLAMP Base URL <span class="info" title="Example: http://127.0.0.1:8081"><img src="icons/info-icon-16.png" alt="info" /></span></label>
                 <input id="fl-base-url" type="text" placeholder="http://127.0.0.1:8081" />
                 <div class="btn-row" style="margin-top: 6px;">
                     <button id="fl-register" type="button" title="Save this FogLAMP URL and set it active">Register</button>
@@ -60,7 +69,7 @@
         <summary>FogLAMP – Registered Instances <span class="muted small">(select & manage)</span></summary>
         <div class="section-content">
             <div class="row">
-                <label for="fl-list">Registered Instances <span class="info" title="Active instance is preselected">ℹ️</span></label>
+                <label for="fl-list">Registered Instances <span class="info" title="Active instance is preselected"><img src="icons/info-icon-16.png" alt="info" /></span></label>
                 <div class="stack">
                     <select id="fl-list"></select>
                     <div class="btn-row" style="align-self: center;">
@@ -95,23 +104,23 @@
         <summary>Publish Asset Readings <span class="muted small">(fetch → sheet)</span></summary>
         <div class="section-content">
             <div class="row">
-                <label for="fl-asset">Asset <span class="info" title="Asset name as shown by the assets API">ℹ️</span></label>
+                <label for="fl-asset">Asset <span class="info" title="Asset name as shown by the assets API"><img src="icons/info-icon-16.png" alt="info" /></span></label>
                 <input id="fl-asset" type="text" placeholder="e.g. sinusoid" />
             </div>
             <div class="row">
-                <label for="fl-datapoint">Datapoint (optional) <span class="info" title="Leave empty to retrieve all datapoints for the asset">ℹ️</span></label>
+                <label for="fl-datapoint">Datapoint (optional) <span class="info" title="Leave empty to retrieve all datapoints for the asset"><img src="icons/info-icon-16.png" alt="info" /></span></label>
                 <input id="fl-datapoint" type="text" placeholder="e.g. value (leave empty for all)" />
             </div>
             <div class="row">
-                <label for="fl-limit">Limit <span class="info" title="Number of latest readings to return (1-10000)">ℹ️</span></label>
+                <label for="fl-limit">Limit <span class="info" title="Number of latest readings to return (1-10000)"><img src="icons/info-icon-16.png" alt="info" /></span></label>
                 <input id="fl-limit" type="number" min="1" max="10000" value="60" />
             </div>
             <div class="row">
-                <label for="fl-skip">Skip <span class="info" title="Number of readings to skip (pagination)">ℹ️</span></label>
+                <label for="fl-skip">Skip <span class="info" title="Number of readings to skip (pagination)"><img src="icons/info-icon-16.png" alt="info" /></span></label>
                 <input id="fl-skip" type="number" min="0" value="0" />
             </div>
             <div class="row">
-                <label>Time window (use only one) <span class="info" title="Only one of seconds, minutes, or hours can be used; using a time window disallows limit/skip">ℹ️</span></label>
+                <label>Time window (use only one) <span class="info" title="Only one of seconds, minutes, or hours can be used; using a time window disallows limit/skip"><img src="icons/info-icon-16.png" alt="info" /></span></label>
                 <div class="stack">
                     <input id="fl-seconds" type="number" min="1" placeholder="seconds" />
                     <input id="fl-minutes" type="number" min="1" placeholder="minutes" />
@@ -119,7 +128,7 @@
                 </div>
             </div>
             <div class="row">
-                <label for="fl-previous">Previous <span class="info" title="Used with a time window; defines how long ago the data should end">ℹ️</span></label>
+                <label for="fl-previous">Previous <span class="info" title="Used with a time window; defines how long ago the data should end"><img src="icons/info-icon-16.png" alt="info" /></span></label>
                 <input id="fl-previous" type="number" min="1" placeholder="previous" />
             </div>
             <div class="row">
@@ -143,7 +152,7 @@
         Office.onReady(function (info) { });
 
         // Add a click event listener to the button
-        document.getElementById("run-btn").addEventListener("click", run);
+        document.getElementById("run-btn") && document.getElementById("run-btn").addEventListener("click", run);
 
         // Based on 'Basic API call' sample from ScriptLab
         async function run() {
@@ -225,11 +234,9 @@
         function normalizeBaseUrl(input) {
             if (!input) return "";
             let url = input.trim();
-            // Enforce http for now (no https until configured)
             if (!/^https?:\/\//i.test(url)) {
                 url = "http://" + url;
             }
-            // Trim trailing slash
             url = url.replace(/\/$/, "");
             return url;
         }
@@ -327,7 +334,6 @@
             let sheet;
             try {
                 sheet = sheets.getItem(name);
-                // Touch a property to ensure it exists
                 sheet.load("name");
                 await context.sync();
             } catch (e) {
@@ -359,7 +365,6 @@
         }
 
         function flattenAssets(list) {
-            // Common shape: [{ asset: "name", count: N }]
             if (!Array.isArray(list)) return { header: ["raw_json"], rows: [[JSON.stringify(list)]] };
             const header = ["asset", "count"];
             const rows = list.map(it => [it.asset || it.name || "", it.count != null ? it.count : ""]);
@@ -367,7 +372,6 @@
         }
 
         function flattenStatistics(list) {
-            // Often an array of { key: "READINGS", value: 123 }
             if (!Array.isArray(list)) return { header: ["raw_json"], rows: [[JSON.stringify(list)]] };
             const header = ["key", "value"];
             const rows = list.map(it => [it.key || it.statistic || it.name || "", it.value != null ? it.value : ""]);
@@ -375,7 +379,6 @@
         }
 
         function flattenReadings(list) {
-            // Common shape: [{ asset, timestamp, reading: {dp1: v1, dp2: v2, ...} }]
             if (!Array.isArray(list)) return { header: ["raw_json"], rows: [[JSON.stringify(list)]] };
             const dpSet = new Set();
             list.forEach(it => {
@@ -426,6 +429,15 @@
                 populateList();
                 updateStatus("Statuses checked.");
             });
+
+            els.setActive().addEventListener("click", () => {
+                const sel = els.list();
+                if (!sel.value) return updateStatus("Select an instance first.");
+                setActiveInstance(sel.value);
+                populateList();
+                updateStatus("Active instance set:", { url: sel.value });
+            });
+
             els.remove().addEventListener("click", () => {
                 const sel = els.list();
                 const url = sel.value;
@@ -437,14 +449,6 @@
                 }
                 populateList();
                 updateStatus("Removed instance:", { url });
-            });
-
-            els.setActive().addEventListener("click", () => {
-                const sel = els.list();
-                if (!sel.value) return updateStatus("Select an instance first.");
-                setActiveInstance(sel.value);
-                populateList();
-                updateStatus("Active instance set:", { url: sel.value });
             });
 
             els.writeStatus().addEventListener("click", async () => {
@@ -462,21 +466,17 @@
                         const sheet = await ensureWorksheet(context, "foglamp status");
                         const start = sheet.getRange("A1");
 
-                        // Clear a reasonable area first
                         sheet.getUsedRange().clear();
 
-                        // Ping section
                         start.values = [["Ping"]];
                         const pingRows = Array.isArray(ping) ? ping : toKeyValueRows(ping || {});
                         writeTable(start.getOffsetRange(1, 0), pingRows, ["key", "value"]);
 
-                        // Statistics section
                         const statsHeaderCell = start.getOffsetRange(pingRows.length + 3, 0);
                         statsHeaderCell.values = [["Statistics"]];
                         const { header: statsHeader, rows: statsRows } = flattenStatistics(stats);
                         writeTable(statsHeaderCell.getOffsetRange(1, 0), statsRows, statsHeader);
 
-                        // Assets section
                         const assetsHeaderCell = statsHeaderCell.getOffsetRange(statsRows.length + 3, 0);
                         assetsHeaderCell.values = [["Assets"]];
                         const { header: assetsHeader, rows: assetsRows } = flattenAssets(assets);
@@ -552,18 +552,16 @@
             `;
             document.body.appendChild(dock);
 
-            // Manage spacer height to avoid overlap with content
             const spacer = document.getElementById('console-spacer');
             function updateSpacer() {
                 if (dock.classList.contains('collapsed')) {
                     spacer.style.height = '0px';
                 } else {
                     const h = parseInt(getComputedStyle(dock).getPropertyValue('--console-height')) || 200;
-                    spacer.style.height = (h + 28) + 'px'; // include header+resizer
+                    spacer.style.height = (h + 28) + 'px';
                 }
             }
 
-            // Toggle expand/collapse
             const toggleBtn = document.getElementById('console-toggle');
             toggleBtn.addEventListener('click', () => {
                 const collapsed = dock.classList.toggle('collapsed');
@@ -571,12 +569,11 @@
                 updateSpacer();
             });
 
-            // Resizing logic
             const resizer = dock.querySelector('.console-resizer');
             let startY = 0;
             let startH = 200;
             function onMouseMove(e) {
-                const dy = startY - e.clientY; // dragging up increases height
+                const dy = startY - e.clientY;
                 let newH = Math.max(100, Math.min(500, startH + dy));
                 dock.style.setProperty('--console-height', newH + 'px');
                 updateSpacer();
@@ -593,7 +590,6 @@
                 window.addEventListener('mouseup', onMouseUp);
             });
 
-            // Start collapsed with spacer=0
             updateSpacer();
         });
 

@@ -35,7 +35,7 @@
 <body>
     <!-- FogLAMP DataLink UI (grouped + collapsible) -->
     <details open>
-        <summary>FogLAMP – Register <span class="muted small">(add & set active, ping)</span></summary>
+        <summary>Register FogLAMP Instance</summary>
         <div class="section-content">
             <div class="row">
                 <label for="fl-base-url">FogLAMP Base URL <span class="info" title="Use HTTPS for Excel on the web. Example: https://your-proxy.example.com">ℹ️</span></label>
@@ -57,7 +57,8 @@
                     <select id="fl-list"></select>
                     <div class="btn-row" style="align-self: center;">
                         <button id="fl-set-active" type="button" title="Make the selected instance active">Set Active</button>
-                        <button id="fl-refresh-list" type="button" title="Reload the list from storage">Refresh List</button>
+                        <button id="fl-refresh-list" type="button" title="Ping all and refresh statuses">Check Status</button>
+                        <button id="fl-remove" type="button" title="Remove the selected instance">Remove</button>
                     </div>
                 </div>
             </div>
@@ -151,6 +152,7 @@
             list: () => document.getElementById("fl-list"),
             setActive: () => document.getElementById("fl-set-active"),
             refreshList: () => document.getElementById("fl-refresh-list"),
+            remove: () => document.getElementById("fl-remove"),
             writeStatus: () => document.getElementById("fl-write-status"),
             asset: () => document.getElementById("fl-asset"),
             datapoint: () => document.getElementById("fl-datapoint"),
@@ -221,17 +223,28 @@
             els.status().textContent = out.join("\n");
         }
 
-        function populateList() {
+        async function populateList() {
             const sel = els.list();
             while (sel.firstChild) sel.removeChild(sel.firstChild);
             const instances = getInstances();
             const active = getActiveInstance();
-            instances.forEach(u => {
+            // Move active to front
+            const ordered = [...instances].sort((a,b) => (a===active? -1 : b===active? 1 : 0));
+            // Ping each to derive status dots
+            for (const u of ordered) {
+                let ok = false;
+                try {
+                    const res = await fetch(u + "/foglamp/ping", { method: "GET" });
+                    ok = res.ok;
+                } catch (e) { ok = false; }
                 const opt = document.createElement("option");
                 opt.value = u;
-                opt.textContent = u + (u === active ? " (active)" : "");
+                const dot = ok ? "🟢" : "⚪"; // green = ok, white/grey = not reachable
+                opt.textContent = `${dot} ${u}${u===active? " (active)" : ""}`;
                 sel.appendChild(opt);
-            });
+            }
+            // Ensure active selected by default
+            if (active) sel.value = active;
         }
 
         // FogLAMP API helpers
@@ -365,7 +378,19 @@
 
             els.refreshList().addEventListener("click", () => {
                 populateList();
-                updateStatus("List refreshed.");
+                updateStatus("Statuses checked.");
+            });
+            els.remove().addEventListener("click", () => {
+                const sel = els.list();
+                const url = sel.value;
+                if (!url) return updateStatus("Select an instance to remove.");
+                const instances = getInstances().filter(u => u !== url);
+                saveInstances(instances);
+                if (getActiveInstance() === url) {
+                    localStorage.removeItem(STORAGE_KEYS.ACTIVE);
+                }
+                populateList();
+                updateStatus("Removed instance:", { url });
             });
 
             els.setActive().addEventListener("click", () => {

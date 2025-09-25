@@ -4,9 +4,9 @@
   xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
   xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="TaskPaneApp">
   <!-- If you create an app based off this repo, create an own ID e.g., via https://www.guidgen.com -->
-  <Id>30d26041-7292-4d19-bd05-32c541f3c381</Id>
+  <Id>83025e38-b768-4a12-841e-48f04976db2c</Id>
   <Version>1.0.0</Version>
-  <ProviderName>Zoomer Analytics GmbH</ProviderName>
+  <ProviderName>DataLink</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Hello Office.js" />
   <Description DefaultValue="A Hello Office.js App." />
@@ -79,7 +79,7 @@
         <bt:Url id="Taskpane.Url" DefaultValue="https://mr901.github.io/excel-officejs/taskpane.html" />
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="MyTab.TabLabel" DefaultValue="Hello World" />
+        <bt:String id="MyTab.TabLabel" DefaultValue="DataLink" />
         <bt:String id="MyCommandsGroup.Label" DefaultValue="MyGroup" />
         <bt:String id="MyTaskpaneButton.Label" DefaultValue="Show Taskpane" />
       </bt:ShortStrings>

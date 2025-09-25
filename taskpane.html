@@ -19,14 +19,22 @@
         button:hover { background: #eef1f4; }
         .btn-row > button { margin-right: 6px; }
         .muted { color: #57606a; }
-        .info { font-weight: 600; margin-left: 6px; cursor: help; }
+        .info { font-weight: 600; margin-left: 6px; cursor: help; color: #9ca3af; font-size: 11px; line-height: 1; vertical-align: middle; }
         .stack { display: flex; gap: 8px; flex-wrap: wrap; }
         .stack > * { flex: 1 1 auto; }
         .small { font-size: 12px; }
         .code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
         hr { border: none; border-top: 1px solid #e1e4e8; margin: 12px 0; }
-        /* Output section emphasis */
-        .console-section { background: #111827; border: 1px solid #1f2937; border-radius: 6px; padding: 10px; }
+        /* Console dock (fixed bottom, resizable) */
+        .console-dock { position: fixed; left: 0; right: 0; bottom: 0; background: #111827; border-top: 1px solid #1f2937; z-index: 9999; }
+        .console-dock .console-resizer { height: 6px; cursor: ns-resize; background: #1f2937; }
+        .console-dock .console-header { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px; color: #e5e7eb; }
+        .console-dock .console-title { font-weight: 600; }
+        .console-dock .console-actions { display: inline-flex; align-items: center; gap: 8px; }
+        .console-dock .console-toggle { background: transparent; color: #e5e7eb; border: 1px solid #374151; border-radius: 4px; padding: 2px 6px; cursor: pointer; }
+        .console-dock .console-toggle:hover { background: #1f2937; }
+        .console-dock .console-content { height: var(--console-height, 200px); overflow: auto; padding: 8px; }
+        .console-dock.collapsed .console-content { display: none; }
         .live-badge { display: inline-block; background: #16a34a; color: #ffffff; border-radius: 999px; padding: 2px 8px; font-size: 11px; margin-left: 8px; vertical-align: middle; }
         .status-pre { white-space: pre-wrap; background:#000000; color:#ffffff; padding:8px; border:1px solid #333333; border-radius:6px; min-height:120px; max-height:300px; overflow:auto; }
     </style>
@@ -120,18 +128,8 @@
         </div>
     </details>
 
-    <div class="console-section">
-        <div class="row" style="display:flex; align-items:center; justify-content:space-between;">
-            <div>
-                <strong class="muted" style="color:#e5e7eb;">Console</strong>
-                <span class="muted small" style="margin-left:6px;">live logs & messages</span>
-            </div>
-            <span class="live-badge" title="Status updates appear here in real time">LIVE</span>
-        </div>
-        <div class="section-content">
-            <pre id="fl-status" class="status-pre"></pre>
-        </div>
-    </div>
+    <!-- Spacer for docked console. Updated dynamically via JS to avoid overlap. -->
+    <div id="console-spacer" style="height: 0;"></div>
 
     <details>
         <summary>Demo <span class="muted small">(template sample)</span></summary>
@@ -246,6 +244,9 @@
                 }
             }
             els.status().textContent = out.join("\n");
+            // Auto-scroll console content to bottom when new logs arrive
+            const container = document.querySelector('.console-dock .console-content');
+            if (container) container.scrollTop = container.scrollHeight;
         }
 
         function updateSummary(preEl, payload) {
@@ -533,6 +534,67 @@
                     updateSummary(summaryPre, { error: String(e) });
                 }
             });
+
+            // Build docked console
+            const dock = document.createElement('div');
+            dock.className = 'console-dock collapsed';
+            dock.style.setProperty('--console-height', '200px');
+            dock.innerHTML = `
+                <div class="console-resizer" title="Drag to resize"></div>
+                <div class="console-header">
+                    <div class="console-title">Console <span class="muted small">live logs & messages</span></div>
+                    <div class="console-actions">
+                        <span class="live-badge" title="Status updates appear here in real time">LIVE</span>
+                        <button class="console-toggle" id="console-toggle" title="Expand/Collapse">▲</button>
+                    </div>
+                </div>
+                <div class="console-content"><pre id="fl-status" class="status-pre"></pre></div>
+            `;
+            document.body.appendChild(dock);
+
+            // Manage spacer height to avoid overlap with content
+            const spacer = document.getElementById('console-spacer');
+            function updateSpacer() {
+                if (dock.classList.contains('collapsed')) {
+                    spacer.style.height = '0px';
+                } else {
+                    const h = parseInt(getComputedStyle(dock).getPropertyValue('--console-height')) || 200;
+                    spacer.style.height = (h + 28) + 'px'; // include header+resizer
+                }
+            }
+
+            // Toggle expand/collapse
+            const toggleBtn = document.getElementById('console-toggle');
+            toggleBtn.addEventListener('click', () => {
+                const collapsed = dock.classList.toggle('collapsed');
+                toggleBtn.textContent = collapsed ? '▲' : '▼';
+                updateSpacer();
+            });
+
+            // Resizing logic
+            const resizer = dock.querySelector('.console-resizer');
+            let startY = 0;
+            let startH = 200;
+            function onMouseMove(e) {
+                const dy = startY - e.clientY; // dragging up increases height
+                let newH = Math.max(100, Math.min(500, startH + dy));
+                dock.style.setProperty('--console-height', newH + 'px');
+                updateSpacer();
+            }
+            function onMouseUp() {
+                window.removeEventListener('mousemove', onMouseMove);
+                window.removeEventListener('mouseup', onMouseUp);
+            }
+            resizer.addEventListener('mousedown', (e) => {
+                startY = e.clientY;
+                const current = parseInt(getComputedStyle(dock).getPropertyValue('--console-height')) || 200;
+                startH = current;
+                window.addEventListener('mousemove', onMouseMove);
+                window.addEventListener('mouseup', onMouseUp);
+            });
+
+            // Start collapsed with spacer=0
+            updateSpacer();
         });
 
     </script>

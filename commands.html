@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <script>
+    Office.onReady(function () {});
+
+    // Use ExecuteFunction handlers to open links
+    function openUrl(url) {
+      try {
+        // Try using Office UI displayDialogAsync for better UX inside Excel
+        Office.context.ui.displayDialogAsync(url, { height: 60, width: 40, displayInIframe: true }, function (asyncResult) {
+          if (asyncResult.status !== Office.AsyncResultStatus.Succeeded) {
+            // Fallback to opening in a new tab
+            window.open(url, "_blank");
+          }
+        });
+      } catch (e) {
+        window.open(url, "_blank");
+      }
+    }
+
+    function openDocumentation(event) {
+      openUrl("https://foglamp.dianomic.com/en/latest/");
+      event.completed();
+    }
+
+    function openContact(event) {
+      openUrl("https://dianomic.com/contact-us/");
+      event.completed();
+    }
+  </script>
+</head>
+<body></body>
+</html>
+
+

@@ -8,11 +8,11 @@
   <Version>1.0.0</Version>
   <ProviderName>DataLink</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Hello Office.js" />
-  <Description DefaultValue="A Hello Office.js App." />
+  <DisplayName DefaultValue="FogLAMP Data Link" />
+  <Description DefaultValue="A FogLAMP Data Link App." />
   <IconUrl DefaultValue="https://mr901.github.io/excel-officejs/icons/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="https://mr901.github.io/excel-officejs/icons/icon-64.png" />
-  <SupportUrl DefaultValue="https://www.xlwings.org/contact" />
+  <SupportUrl DefaultValue="https://dianomic.com/contact-us" />
   <AppDomains>
     <AppDomain>https://mr901.github.io/excel-officejs/</AppDomain>
   </AppDomains>
@@ -27,6 +27,7 @@
     <Hosts>
       <Host xsi:type="Workbook">
         <DesktopFormFactor>
+          <FunctionFile resid="FunctionFile.Url" />
           <!-- resid must point to a Url Resource -->
           <ExtensionPoint xsi:type="PrimaryCommandSurface">
 
@@ -60,6 +61,47 @@
                 </Control>
 
               </Group>
+              <Group id="HelpGroup">
+                <Label resid="HelpGroup.Label" />
+                <Icon>
+                  <bt:Image size="16" resid="Icon.16x16" />
+                  <bt:Image size="32" resid="Icon.32x32" />
+                  <bt:Image size="80" resid="Icon.80x80" />
+                </Icon>
+
+                <Control xsi:type="Button" id="DocsButton">
+                  <Label resid="DocsButton.Label" />
+                  <Supertip>
+                    <Title resid="DocsButton.Label" />
+                    <Description resid="DocsButton.Tooltip" />
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16" />
+                    <bt:Image size="32" resid="Icon.32x32" />
+                    <bt:Image size="80" resid="Icon.80x80" />
+                  </Icon>
+                  <Action xsi:type="ExecuteFunction">
+                    <FunctionName>openDocumentation</FunctionName>
+                  </Action>
+                </Control>
+
+                <Control xsi:type="Button" id="ContactButton">
+                  <Label resid="ContactButton.Label" />
+                  <Supertip>
+                    <Title resid="ContactButton.Label" />
+                    <Description resid="ContactButton.Tooltip" />
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16" />
+                    <bt:Image size="32" resid="Icon.32x32" />
+                    <bt:Image size="80" resid="Icon.80x80" />
+                  </Icon>
+                  <Action xsi:type="ExecuteFunction">
+                    <FunctionName>openContact</FunctionName>
+                  </Action>
+                </Control>
+
+              </Group>
               <Label resid="MyTab.TabLabel" />
             </CustomTab>
 
@@ -77,14 +119,20 @@
       <bt:Urls>
         <!-- This must point to the HTML document with the task pane -->
         <bt:Url id="Taskpane.Url" DefaultValue="https://mr901.github.io/excel-officejs/taskpane.html" />
+        <bt:Url id="FunctionFile.Url" DefaultValue="https://mr901.github.io/excel-officejs/commands.html" />
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="MyTab.TabLabel" DefaultValue="DataLink" />
         <bt:String id="MyCommandsGroup.Label" DefaultValue="MyGroup" />
         <bt:String id="MyTaskpaneButton.Label" DefaultValue="Show Taskpane" />
+        <bt:String id="HelpGroup.Label" DefaultValue="Help & Links" />
+        <bt:String id="DocsButton.Label" DefaultValue="Documentation" />
+        <bt:String id="ContactButton.Label" DefaultValue="Contact Us" />
       </bt:ShortStrings>
       <bt:LongStrings>
         <bt:String id="MyTaskpaneButton.Tooltip" DefaultValue="Click to show the task pane" />
+        <bt:String id="DocsButton.Tooltip" DefaultValue="Open FogLAMP documentation in your browser" />
+        <bt:String id="ContactButton.Tooltip" DefaultValue="Open Dianomic contact page in your browser" />
       </bt:LongStrings>
     </Resources>
 

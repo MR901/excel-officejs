@@ -26,27 +26,33 @@
         .code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
         hr { border: none; border-top: 1px solid #e1e4e8; margin: 12px 0; }
         /* Output section emphasis */
-        .output-section { background: #f3f4f6; border-color: #d1d5db; }
+        .console-section { background: #111827; border: 1px solid #1f2937; border-radius: 6px; padding: 10px; }
         .live-badge { display: inline-block; background: #16a34a; color: #ffffff; border-radius: 999px; padding: 2px 8px; font-size: 11px; margin-left: 8px; vertical-align: middle; }
-        .status-pre { white-space: pre-wrap; background:#0f172a; color:#e2e8f0; padding:8px; border:1px solid #0b1220; border-radius:6px; min-height:96px; max-height:260px; overflow:auto; }
+        .status-pre { white-space: pre-wrap; background:#000000; color:#ffffff; padding:8px; border:1px solid #333333; border-radius:6px; min-height:120px; max-height:300px; overflow:auto; }
     </style>
 </head>
 
 <body>
     <!-- FogLAMP DataLink UI (grouped + collapsible) -->
     <details open>
-        <summary>FogLAMP Instances <span class="muted small">(register, select, ping)</span></summary>
+        <summary>FogLAMP – Register <span class="muted small">(add & set active, ping)</span></summary>
         <div class="section-content">
             <div class="row">
-                <label for="fl-base-url">FogLAMP Base URL <span class="info" title="HTTP only for now. Example: http://127.0.0.1:8081">ℹ️</span></label>
-                <input id="fl-base-url" type="text" placeholder="http://127.0.0.1:8081" />
+                <label for="fl-base-url">FogLAMP Base URL <span class="info" title="Use HTTPS for Excel on the web. Example: https://your-proxy.example.com">ℹ️</span></label>
+                <input id="fl-base-url" type="text" placeholder="https://your-proxy.example.com" />
                 <div class="btn-row" style="margin-top: 6px;">
                     <button id="fl-register" type="button" title="Save this FogLAMP URL and set it active">Register</button>
                     <button id="fl-ping" type="button" title="Ping the active FogLAMP instance">Ping</button>
                 </div>
             </div>
+        </div>
+    </details>
+
+    <details open>
+        <summary>FogLAMP – Registered Instances <span class="muted small">(select & manage)</span></summary>
+        <div class="section-content">
             <div class="row">
-                <label for="fl-list">Registered Instances <span class="info" title="Select which FogLAMP instance should be active for actions">ℹ️</span></label>
+                <label for="fl-list">Registered Instances <span class="info" title="Active instance is preselected">ℹ️</span></label>
                 <div class="stack">
                     <select id="fl-list"></select>
                     <div class="btn-row" style="align-self: center;">
@@ -88,15 +94,18 @@
         </div>
     </details>
 
-    <details class="output-section" open>
-        <summary>
-            Output <span class="muted small">(live logs & messages)</span>
+    <div class="console-section">
+        <div class="row" style="display:flex; align-items:center; justify-content:space-between;">
+            <div>
+                <strong class="muted" style="color:#e5e7eb;">Console</strong>
+                <span class="muted small" style="margin-left:6px;">live logs & messages</span>
+            </div>
             <span class="live-badge" title="Status updates appear here in real time">LIVE</span>
-        </summary>
+        </div>
         <div class="section-content">
             <pre id="fl-status" class="status-pre"></pre>
         </div>
-    </details>
+    </div>
 
     <details>
         <summary>Demo <span class="muted small">(template sample)</span></summary>

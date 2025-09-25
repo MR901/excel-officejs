@@ -38,8 +38,8 @@
         <summary>Register FogLAMP Instance</summary>
         <div class="section-content">
             <div class="row">
-                <label for="fl-base-url">FogLAMP Base URL <span class="info" title="Use HTTPS for Excel on the web. Example: https://your-proxy.example.com">ℹ️</span></label>
-                <input id="fl-base-url" type="text" placeholder="https://your-proxy.example.com" />
+                <label for="fl-base-url">FogLAMP Base URL <span class="info" title="Example: http://127.0.0.1:8081">ℹ️</span></label>
+                <input id="fl-base-url" type="text" placeholder="http://127.0.0.1:8081" />
                 <div class="btn-row" style="margin-top: 6px;">
                     <button id="fl-register" type="button" title="Save this FogLAMP URL and set it active">Register</button>
                     <button id="fl-ping" type="button" title="Ping the active FogLAMP instance">Ping</button>
@@ -62,11 +62,20 @@
                     </div>
                 </div>
             </div>
+            <details>
+                <summary>Check summary statistics for active instance</summary>
+                <div class="section-content">
+                    <div class="row">
+                        <button id="fl-check-summary" type="button" title="Ping, fetch statistics and assets summary for the active instance">Check</button>
+                    </div>
+                    <pre id="fl-summary" class="status-pre"></pre>
+                </div>
+            </details>
         </div>
     </details>
 
     <details open>
-        <summary>Status <span class="muted small">(ping, statistics, assets → sheet)</span></summary>
+        <summary>Publish Status <span class="muted small">(ping, statistics, assets → sheet)</span></summary>
         <div class="section-content">
             <div class="row">
                 <button id="fl-write-status" type="button" title="Writes ping, statistics, and assets to the 'foglamp status' sheet">Write FogLAMP Status to sheet "foglamp status"</button>
@@ -75,7 +84,7 @@
     </details>
 
     <details open>
-        <summary>Asset Readings <span class="muted small">(fetch → sheet)</span></summary>
+        <summary>Publish Asset Readings <span class="muted small">(fetch → sheet)</span></summary>
         <div class="section-content">
             <div class="row">
                 <label for="fl-asset">Asset <span class="info" title="Asset name as shown by the assets API">ℹ️</span></label>
@@ -88,6 +97,22 @@
             <div class="row">
                 <label for="fl-limit">Limit <span class="info" title="Number of latest readings to return (1-10000)">ℹ️</span></label>
                 <input id="fl-limit" type="number" min="1" max="10000" value="60" />
+            </div>
+            <div class="row">
+                <label for="fl-skip">Skip <span class="info" title="Number of readings to skip (pagination)">ℹ️</span></label>
+                <input id="fl-skip" type="number" min="0" value="0" />
+            </div>
+            <div class="row">
+                <label>Time window (use only one) <span class="info" title="Only one of seconds, minutes, or hours can be used; using a time window disallows limit/skip">ℹ️</span></label>
+                <div class="stack">
+                    <input id="fl-seconds" type="number" min="1" placeholder="seconds" />
+                    <input id="fl-minutes" type="number" min="1" placeholder="minutes" />
+                    <input id="fl-hours" type="number" min="1" placeholder="hours" />
+                </div>
+            </div>
+            <div class="row">
+                <label for="fl-previous">Previous <span class="info" title="Used with a time window; defines how long ago the data should end">ℹ️</span></label>
+                <input id="fl-previous" type="number" min="1" placeholder="previous" />
             </div>
             <div class="row">
                 <button id="fl-get-readings" type="button" title="Writes readings to a sheet named 'asset reading - <asset>'">Get Readings → sheet "asset reading - &lt;asset&gt;"</button>
@@ -223,6 +248,14 @@
             els.status().textContent = out.join("\n");
         }
 
+        function updateSummary(preEl, payload) {
+            try {
+                preEl.textContent = JSON.stringify(payload, null, 2);
+            } catch (e) {
+                preEl.textContent = String(payload);
+            }
+        }
+
         async function populateList() {
             const sel = els.list();
             while (sel.firstChild) sel.removeChild(sel.firstChild);
@@ -269,7 +302,19 @@
         async function foglampAssetReadings(baseUrl, asset, datapoint, limit) {
             const dp = (datapoint || "").trim();
             const path = dp ? `/foglamp/asset/${asset}/${dp}` : `/foglamp/asset/${asset}`;
-            const url = `${baseUrl}${path}?limit=${encodeURIComponent(limit)}`;
+            const params = new URLSearchParams();
+            if (limit != null) params.set("limit", String(limit));
+            const skipVal = document.getElementById("fl-skip").value;
+            if (skipVal) params.set("skip", String(parseInt(skipVal, 10)));
+            const sec = document.getElementById("fl-seconds").value;
+            const min = document.getElementById("fl-minutes").value;
+            const hr = document.getElementById("fl-hours").value;
+            const prev = document.getElementById("fl-previous").value;
+            if (sec) params.set("seconds", String(parseInt(sec, 10)));
+            else if (min) params.set("minutes", String(parseInt(min, 10)));
+            else if (hr) params.set("hours", String(parseInt(hr, 10)));
+            if (prev) params.set("previous", String(parseInt(prev, 10)));
+            const url = `${baseUrl}${path}?${params.toString()}`;
             const res = await fetch(url);
             if (!res.ok) throw new Error("Readings failed: " + res.status);
             return res.json();
@@ -469,6 +514,25 @@
 
             // Initial render
             populateList();
+
+            // Wire summary checker
+            const summaryBtn = document.getElementById("fl-check-summary");
+            const summaryPre = document.getElementById("fl-summary");
+            summaryBtn.addEventListener("click", async () => {
+                const url = getActiveInstance();
+                if (!url) return updateSummary(summaryPre, { error: "No active instance" });
+                updateSummary(summaryPre, { status: "Checking..." });
+                try {
+                    const [ping, stats, assets] = await Promise.all([
+                        foglampPing(url).catch(e => ({ error: String(e) })),
+                        foglampStatistics(url).catch(e => ({ error: String(e) })),
+                        foglampAssets(url).catch(e => ({ error: String(e) }))
+                    ]);
+                    updateSummary(summaryPre, { ping, statistics: stats, assets });
+                } catch (e) {
+                    updateSummary(summaryPre, { error: String(e) });
+                }
+            });
         });
 
     </script>

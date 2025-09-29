@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FogLAMP Data Link</title>
     <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <script type="text/javascript" src="smart-connection.js"></script>
     <style>
         body { 
             font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; 
@@ -112,6 +113,29 @@
                     <button id="fl-register" type="button" title="Save this FogLAMP URL and set it active">Register</button>
                     <button id="fl-ping" type="button" title="Ping the active FogLAMP instance">Ping</button>
                 </div>
+            </div>
+        </div>
+    </details>
+
+    <details id="connection-status-section" open>
+        <summary id="connection-status-header">Connection Status <span class="muted small">(auto-detection)</span></summary>
+        <div class="section-content">
+            <div class="row">
+                <div id="environment-info" class="small muted">Detecting environment...</div>
+            </div>
+            <div class="row">
+                <div id="connection-summary">Checking connections...</div>
+            </div>
+            <div id="proxy-guidance" class="row" style="display: none;">
+                <div class="small" style="background: #f6f8fa; padding: 8px; border: 1px solid #d0d7de; border-radius: 6px; margin-top: 4px;">
+                    <strong>💡 To access remote FogLAMP instances in Excel Web:</strong><br>
+                    1. Download <code>simple-proxy.js</code> from this repository<br>
+                    2. Run: <code>node simple-proxy.js</code><br>
+                    3. Click "Refresh" below to detect proxy
+                </div>
+            </div>
+            <div class="row">
+                <button id="refresh-connections" type="button" title="Re-scan for available FogLAMP instances">Refresh Connections</button>
             </div>
         </div>
     </details>
@@ -455,8 +479,82 @@
             return { header, rows };
         }
 
+        // Smart Connection Management
+        async function initializeSmartConnections() {
+            updateEnvironmentInfo('Detecting environment...');
+            updateConnectionSummary('Initializing...');
+
+            try {
+                // Detect environment
+                const environment = smartManager.detectEnvironment();
+                updateEnvironmentInfo(`Environment: ${environment === 'web' ? 'Excel Web 🌐' : 'Excel Desktop 📱'}`);
+
+                // Discover available instances
+                updateConnectionSummary('Discovering instances...');
+                const instances = await smartManager.discoverInstances();
+                
+                updateConnectionSummary('Discovery complete');
+                updateConnectionStatus();
+                
+                // Auto-populate instances in the list
+                await populateSmartInstances();
+                
+            } catch (error) {
+                console.error('Smart connection initialization failed:', error);
+                updateConnectionSummary('Initialization failed: ' + error.message);
+            }
+        }
+
+        function updateEnvironmentInfo(message) {
+            const el = document.getElementById('environment-info');
+            if (el) el.textContent = message;
+        }
+
+        function updateConnectionSummary(message) {
+            const el = document.getElementById('connection-summary');
+            if (el) el.textContent = message;
+        }
+
+        function updateConnectionStatus() {
+            const status = smartManager.getConnectionStatus();
+            updateConnectionSummary(status.message);
+            
+            // Show proxy guidance if needed
+            const proxyGuidance = document.getElementById('proxy-guidance');
+            if (proxyGuidance) {
+                proxyGuidance.style.display = status.suggestion && status.suggestion.includes('proxy') ? 'block' : 'none';
+            }
+
+            // Update header color based on status
+            const header = document.getElementById('connection-status-header');
+            if (header) {
+                const summary = header.querySelector('.muted');
+                if (summary) {
+                    if (status.status === 'success') {
+                        summary.style.color = '#16a34a'; // green
+                        summary.textContent = '(all connected)';
+                    } else if (status.status === 'partial') {
+                        summary.style.color = '#ea580c'; // orange  
+                        summary.textContent = '(partial)';
+                    } else {
+                        summary.style.color = '#dc2626'; // red
+                        summary.textContent = '(connection issues)';
+                    }
+                }
+            }
+        }
+
+        async function populateSmartInstances() {
+            // Just refresh the UI list with what's already registered by users
+            // Don't auto-add instances - let users register them manually
+            populateList();
+        }
+
         // Event wiring
-        document.addEventListener("DOMContentLoaded", () => {
+        document.addEventListener("DOMContentLoaded", async () => {
+            // Initialize smart connection manager
+            await initializeSmartConnections();
+            
             // Wire buttons
             els.register().addEventListener("click", async () => {
                 const url = normalizeBaseUrl(els.baseUrl().value);
@@ -468,10 +566,10 @@
                 populateList();
                 updateStatus("Registered instance:", { url });
                 try {
-                    const data = await foglampPing(url);
+                    const data = await foglampPingSmart();
                     updateStatus("Ping OK:", data);
                 } catch (err) {
-                    updateStatus("Ping failed. If this is a browser CORS error, consider running a local proxy or enabling CORS on FogLAMP.", { error: String(err) });
+                    updateStatus("Ping failed.", { error: String(err) });
                 }
             });
 
@@ -479,7 +577,7 @@
                 const url = getActiveInstance();
                 if (!url) return updateStatus("No active instance. Register or select one first.");
                 try {
-                    const data = await foglampPing(url);
+                    const data = await foglampPingSmart();
                     updateStatus("Ping OK:", data);
                 } catch (err) {
                     updateStatus("Ping failed.", { error: String(err) });
@@ -518,9 +616,9 @@
                 updateStatus("Fetching FogLAMP status...");
                 try {
                     const [ping, stats, assets] = await Promise.all([
-                        foglampPing(url).catch(e => ({ error: String(e) })),
-                        foglampStatistics(url).catch(e => ({ error: String(e) })),
-                        foglampAssets(url).catch(e => ({ error: String(e) }))
+                        foglampPingSmart().catch(e => ({ error: String(e) })),
+                        foglampStatisticsSmart().catch(e => ({ error: String(e) })),
+                        foglampAssetsSmart().catch(e => ({ error: String(e) }))
                     ]);
 
                     await Excel.run(async (context) => {
@@ -559,7 +657,7 @@
                 if (!asset) return updateStatus("Enter an asset name.");
                 updateStatus("Fetching readings...");
                 try {
-                    const data = await foglampAssetReadings(url, asset, datapoint, limit);
+                    const data = await foglampAssetReadingsSmart(asset, datapoint, limit);
                     const { header, rows } = flattenReadings(data);
                     const sheetName = `asset reading - ${asset}`;
                     await Excel.run(async (context) => {
@@ -586,13 +684,27 @@
                 updateSummary(summaryPre, { status: "Checking..." });
                 try {
                     const [ping, stats, assets] = await Promise.all([
-                        foglampPing(url).catch(e => ({ error: String(e) })),
-                        foglampStatistics(url).catch(e => ({ error: String(e) })),
-                        foglampAssets(url).catch(e => ({ error: String(e) }))
+                        foglampPingSmart().catch(e => ({ error: String(e) })),
+                        foglampStatisticsSmart().catch(e => ({ error: String(e) })),
+                        foglampAssetsSmart().catch(e => ({ error: String(e) }))
                     ]);
                     updateSummary(summaryPre, { ping, statistics: stats, assets });
                 } catch (e) {
                     updateSummary(summaryPre, { error: String(e) });
+                }
+            });
+
+            // Smart connection refresh button
+            document.getElementById("refresh-connections").addEventListener("click", async () => {
+                updateConnectionSummary('Refreshing...');
+                try {
+                    await smartManager.discoverInstances();
+                    updateConnectionStatus();
+                    await populateSmartInstances();
+                    updateStatus('Connection refresh complete');
+                } catch (error) {
+                    updateConnectionSummary('Refresh failed: ' + error.message);
+                    updateStatus('Connection refresh failed', { error: String(error) });
                 }
             });
 

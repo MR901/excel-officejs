@@ -73,31 +73,86 @@ export class InstancePingManager {
         logMessage('info', 'Ping started', { url, timeout, retry: retryCount });
 
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), timeout);
-            this.pingTimeouts.set(url, timeoutId);
+            // Use smart manager for proxy-aware ping if available
+            let response, data;
             
-            const response = await fetch(`${url}/foglamp/ping`, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                signal: controller.signal
-            });
+            if (window.foglampPingSmart) {
+                // Use smart manager ping (proxy-aware)
+                logMessage('info', 'Using smart manager for ping', { url });
+                data = await window.foglampPingSmart();
+                const endTime = performance.now();
+                const pingMs = Math.round(endTime - startTime);
+                
+                // Create response-like object for consistency
+                response = { ok: true };
+                
+                const pingResult = {
+                    url,
+                    success: true,
+                    pingMs: smartPingMs,
+                    hostName: data.hostName || data.serviceName || '',
+                    timestamp: new Date().toISOString(),
+                    data
+                };
 
-            this.pingTimeouts.delete(url);
-            const endTime = performance.now();
-            const pingMs = Math.round(endTime - startTime);
+                // Update metadata with successful ping
+                if (updateUI) {
+                    updateInstanceMeta(url, {
+                        lastStatus: INSTANCE_STATUS.SUCCESS,
+                        lastPingMs: smartPingMs,
+                        lastCheckedAt: pingResult.timestamp,
+                        hostName: pingResult.hostName,
+                        lastError: null // Clear any previous error
+                    });
+                }
 
-            if (response.ok) {
-                const data = await response.json();
+                this.updatePingHistory(url, pingResult);
+                this.renderInstanceList();
+
+                logMessage('info', 'Ping successful via smart manager', {
+                    url, 
+                    pingMs: pingResult.pingMs,
+                    hostName: pingResult.hostName
+                });
+
+                return pingResult;
+                
+            } else {
+                // Fallback to direct fetch (may not work with proxy)
+                logMessage('info', 'Using direct fetch for ping (smart manager unavailable)', { url });
+                
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), timeout);
+                this.pingTimeouts.set(url, timeoutId);
+                
+                response = await fetch(`${url}/foglamp/ping`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    signal: controller.signal
+                });
+
+                this.pingTimeouts.delete(url);
+                const endTime = performance.now();
+                const pingMs = Math.round(endTime - startTime);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                data = await response.json();
+                
+                const directEndTime = performance.now();
+                const directPingMs = Math.round(directEndTime - startTime);
+                
                 const hostName = data.hostName || data.serviceName || '';
                 
                 const pingResult = {
                     url,
                     success: true,
-                    pingMs,
+                    pingMs: directPingMs,
                     hostName,
                     timestamp: new Date().toISOString(),
                     data
@@ -107,38 +162,36 @@ export class InstancePingManager {
                 if (updateUI) {
                     updateInstanceMeta(url, {
                         lastStatus: INSTANCE_STATUS.SUCCESS,
-                        lastPingMs: pingMs,
+                        lastPingMs: directPingMs,
                         lastCheckedAt: pingResult.timestamp,
                         hostName: hostName,
                         lastError: null // Clear any previous error
                     });
                 }
-
-                // Record ping history
-                this.recordPingHistory(url, pingResult);
-
-                logMessage('info', 'Ping successful', { url, pingMs, hostName });
                 
-                // Sync with smart manager if available
-                this.syncFromSmartManager();
+                this.updatePingHistory(url, pingResult);
+                this.renderInstanceList();
+
+                logMessage('info', 'Ping successful via direct fetch', {
+                    url, 
+                    pingMs: pingResult.pingMs,
+                    hostName: pingResult.hostName
+                });
 
                 return pingResult;
-
-            } else {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
         } catch (error) {
             this.pingTimeouts.delete(url);
-            const endTime = performance.now();
-            const pingMs = Math.round(endTime - startTime);
+            const errorEndTime = performance.now();
+            const errorPingMs = Math.round(errorEndTime - startTime);
 
             const errorMessage = this.getErrorMessage(error);
             
             const pingResult = {
                 url,
                 success: false,
-                pingMs,
+                pingMs: errorPingMs,
                 error: errorMessage,
                 timestamp: new Date().toISOString(),
                 retryCount

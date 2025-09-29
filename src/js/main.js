@@ -187,6 +187,9 @@ class FogLAMPDataLink {
             // Set up module cross-dependencies
             this.setupModuleDependencies();
 
+            // Perform initial refresh of connections and overview
+            await this.performInitialRefresh();
+
             console.log('✅ FogLAMP DataLink modules loaded successfully');
             console.log('📋 Available Modules:', {
                 config: Object.keys(this.config),
@@ -255,6 +258,65 @@ class FogLAMPDataLink {
         };
         
         console.log('✅ Module dependencies configured');
+    }
+
+    /**
+     * Perform initial refresh of connections and overview on startup
+     * Ensures the overview section is populated when taskpane loads
+     */
+    async performInitialRefresh() {
+        try {
+            console.log('🔄 Performing initial system refresh...');
+            
+            // Small delay to ensure UI elements are fully rendered
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Check if we have any instances to refresh
+            const instances = getInstances();
+            if (instances && instances.length > 0) {
+                console.log(`🔄 Auto-refreshing ${instances.length} instances on startup...`);
+                
+                // Perform the same comprehensive refresh as "Refresh Connections" button
+                if (window.handleUpdateConnections) {
+                    await window.handleUpdateConnections();
+                    console.log('✅ Initial system refresh completed successfully');
+                } else {
+                    console.warn('⚠️ handleUpdateConnections not available, falling back to basic UI update');
+                    // Fallback: just update UI elements
+                    if (window.updateOverviewBadges) {
+                        window.updateOverviewBadges();
+                    }
+                    if (window.renderInstanceList) {
+                        window.renderInstanceList();
+                    }
+                }
+            } else {
+                console.log('ℹ️ No instances found, updating UI to show empty state');
+                // Update UI to show proper empty state
+                if (window.updateOverviewBadges) {
+                    window.updateOverviewBadges();
+                }
+                if (window.renderInstanceList) {
+                    window.renderInstanceList();
+                }
+            }
+            
+        } catch (error) {
+            console.error('❌ Initial refresh failed:', error);
+            // Don't throw - initialization should continue even if refresh fails
+            
+            // Ensure basic UI update happens even if refresh fails
+            try {
+                if (window.updateOverviewBadges) {
+                    window.updateOverviewBadges();
+                }
+                if (window.renderInstanceList) {
+                    window.renderInstanceList();
+                }
+            } catch (fallbackError) {
+                console.error('❌ Fallback UI update also failed:', fallbackError);
+            }
+        }
     }
 }
 

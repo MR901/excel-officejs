@@ -218,10 +218,22 @@ export class InstanceListManager {
         const actions = document.createElement('div');
         actions.className = 'instance-actions';
 
-        // Set Active button
-        const setActiveBtn = this.createActionButton('Set Active', 'set-active', () => {
-            this.setInstanceActive(instance.url);
-        });
+        // Check if this instance is currently active
+        const activeUrl = getActiveInstance();
+        const isActive = activeUrl === instance.url;
+
+        // Set Active button OR Active indicator
+        if (isActive) {
+            // Show "Active" indicator for the current active instance
+            const activeIndicator = this.createActiveIndicator();
+            actions.appendChild(activeIndicator);
+        } else {
+            // Show "Set Active" button for inactive instances
+            const setActiveBtn = this.createActionButton('Set Active', 'set-active', () => {
+                this.setInstanceActive(instance.url);
+            });
+            actions.appendChild(setActiveBtn);
+        }
 
         // Ping button
         const pingBtn = this.createActionButton('Ping', 'ping', () => {
@@ -233,11 +245,38 @@ export class InstanceListManager {
             this.removeInstanceWithConfirm(instance.url);
         });
 
-        actions.appendChild(setActiveBtn);
         actions.appendChild(pingBtn);
         actions.appendChild(removeBtn);
 
         return actions;
+    }
+
+    /**
+     * Create "Active" indicator for the current active instance
+     * @returns {HTMLElement} Active indicator element
+     */
+    createActiveIndicator() {
+        const indicator = document.createElement('div');
+        indicator.className = 'active-indicator';
+        indicator.textContent = 'Active';
+        indicator.title = 'This is the currently active instance';
+        
+        // Add inline styles for the blue indicator
+        indicator.style.cssText = `
+            background: #0078d4;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 2px;
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+            min-width: 60px;
+            border: 1px solid #106ebe;
+            cursor: default;
+            user-select: none;
+        `;
+        
+        return indicator;
     }
 
     /**
@@ -370,22 +409,30 @@ export class InstanceListManager {
             
             logMessage('info', 'Remove requested', { url, displayName });
             
-            if (confirm(`Remove instance "${displayName}"?\n\nURL: ${url}`)) {
-                const removed = window.removeInstance(url);
-                if (removed) {
-                    logMessage('info', 'Instance removed successfully', { url, name: displayName });
-                    this.renderInstanceList();
-                    
-                    // Update badges if available
-                    if (window.updateOverviewBadges) {
-                        window.updateOverviewBadges();
+            // Use Office.js compatible confirmation
+            this.showConfirmDialog(
+                `Remove instance "${displayName}"?`,
+                `URL: ${url}\n\nThis action cannot be undone.`,
+                () => {
+                    // User confirmed
+                    const removed = window.removeInstance(url);
+                    if (removed) {
+                        logMessage('info', 'Instance removed successfully', { url, name: displayName });
+                        this.renderInstanceList();
+                        
+                        // Update badges if available
+                        if (window.updateOverviewBadges) {
+                            window.updateOverviewBadges();
+                        }
+                    } else {
+                        logMessage('warn', 'Failed to remove instance', { url });
                     }
-                } else {
-                    logMessage('warn', 'Failed to remove instance', { url });
+                },
+                () => {
+                    // User cancelled
+                    logMessage('info', 'Remove cancelled by user', { url });
                 }
-            } else {
-                logMessage('info', 'Remove cancelled by user', { url });
-            }
+            );
         } catch (error) {
             logMessage('error', 'Error during instance removal', { url, error: error.message });
         }
@@ -653,6 +700,165 @@ export class InstanceListManager {
             }
         `;
         document.head.appendChild(style);
+    }
+
+    /**
+     * Show Office.js compatible confirmation dialog
+     * @param {string} title Dialog title
+     * @param {string} message Dialog message  
+     * @param {Function} onConfirm Callback for confirmation
+     * @param {Function} onCancel Callback for cancellation
+     */
+    showConfirmDialog(title, message, onConfirm, onCancel) {
+        // Create modal overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'confirm-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        `;
+
+        // Create dialog box
+        const dialog = document.createElement('div');
+        dialog.className = 'confirm-dialog';
+        dialog.style.cssText = `
+            background: white;
+            border-radius: 4px;
+            padding: 20px;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            text-align: left;
+        `;
+
+        // Create title
+        const titleEl = document.createElement('h3');
+        titleEl.textContent = title;
+        titleEl.style.cssText = `
+            margin: 0 0 12px 0;
+            color: #323130;
+            font-size: 16px;
+            font-weight: 600;
+        `;
+
+        // Create message
+        const messageEl = document.createElement('p');
+        messageEl.textContent = message;
+        messageEl.style.cssText = `
+            margin: 0 0 20px 0;
+            color: #605e5c;
+            font-size: 14px;
+            line-height: 1.4;
+            white-space: pre-line;
+        `;
+
+        // Create button container
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = `
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        `;
+
+        // Create Cancel button
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.cssText = `
+            padding: 8px 16px;
+            border: 1px solid #8a8886;
+            background: white;
+            color: #323130;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 14px;
+        `;
+
+        // Create Remove button
+        const confirmBtn = document.createElement('button');
+        confirmBtn.textContent = 'Remove';
+        confirmBtn.style.cssText = `
+            padding: 8px 16px;
+            border: 1px solid #d13438;
+            background: #d13438;
+            color: white;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        `;
+
+        // Add hover effects
+        cancelBtn.addEventListener('mouseenter', () => {
+            cancelBtn.style.background = '#f3f2f1';
+        });
+        cancelBtn.addEventListener('mouseleave', () => {
+            cancelBtn.style.background = 'white';
+        });
+
+        confirmBtn.addEventListener('mouseenter', () => {
+            confirmBtn.style.background = '#b92b2b';
+        });
+        confirmBtn.addEventListener('mouseleave', () => {
+            confirmBtn.style.background = '#d13438';
+        });
+
+        // Add event handlers
+        const closeDialog = () => {
+            if (overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+        };
+
+        cancelBtn.addEventListener('click', () => {
+            closeDialog();
+            if (onCancel) onCancel();
+        });
+
+        confirmBtn.addEventListener('click', () => {
+            closeDialog();
+            if (onConfirm) onConfirm();
+        });
+
+        // Close on overlay click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                closeDialog();
+                if (onCancel) onCancel();
+            }
+        });
+
+        // Close on Escape key
+        const escapeHandler = (e) => {
+            if (e.key === 'Escape') {
+                document.removeEventListener('keydown', escapeHandler);
+                closeDialog();
+                if (onCancel) onCancel();
+            }
+        };
+        document.addEventListener('keydown', escapeHandler);
+
+        // Assemble dialog
+        buttonContainer.appendChild(cancelBtn);
+        buttonContainer.appendChild(confirmBtn);
+        dialog.appendChild(titleEl);
+        dialog.appendChild(messageEl);
+        dialog.appendChild(buttonContainer);
+        overlay.appendChild(dialog);
+
+        // Add to page
+        document.body.appendChild(overlay);
+
+        // Focus the cancel button by default (safer)
+        cancelBtn.focus();
     }
 }
 

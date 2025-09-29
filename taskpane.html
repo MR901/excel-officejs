@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FogLAMP Data Link</title>
     <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
-    <script type="text/javascript" src="smart-connection.js"></script>
+    <script type="text/javascript" src="smart-connection.js?v=4"></script>
     <style>
         body { 
             font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; 
@@ -316,6 +316,13 @@
             localStorage.setItem(STORAGE_KEYS.ACTIVE, url);
         }
 
+        // Make core functions globally available for smart-connection.js and debugging
+        window.getInstances = getInstances;
+        window.addInstance = addInstance;
+        window.getActiveInstance = getActiveInstance;
+        window.setActiveInstance = setActiveInstance;
+        window.saveInstances = saveInstances;
+
         function normalizeBaseUrl(input) {
             if (!input) return "";
             let url = input.trim();
@@ -448,13 +455,23 @@
             updateConnectionSummary('Initializing...');
 
             try {
+                console.log('🚀 Starting smart connection initialization...');
+                console.log('📋 Available functions:', {
+                    getInstances: typeof getInstances,
+                    addInstance: typeof addInstance,
+                    smartManager: typeof smartManager
+                });
+
                 // Detect environment
                 const environment = smartManager.detectEnvironment();
+                console.log('🔍 Environment detection result:', environment);
                 updateEnvironmentInfo(`Environment: ${environment === 'web' ? 'Excel Web 🌐' : 'Excel Desktop 📱'}`);
 
                 // Discover available instances
                 updateConnectionSummary('Discovering instances...');
+                console.log('🔍 Starting instance discovery...');
                 const instances = await smartManager.discoverInstances();
+                console.log('✅ Instance discovery complete:', instances.length, 'instances found');
                 
                 updateConnectionSummary('Discovery complete');
                 updateConnectionStatus();
@@ -462,8 +479,10 @@
                 // Auto-populate instances in the list
                 await populateSmartInstances();
                 
+                console.log('✅ Smart connection initialization complete');
+                
             } catch (error) {
-                console.error('Smart connection initialization failed:', error);
+                console.error('❌ Smart connection initialization failed:', error);
                 updateConnectionSummary('Initialization failed: ' + error.message);
             }
         }

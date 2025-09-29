@@ -91,22 +91,40 @@ class SmartFogLAMPManager {
     // Detect Excel environment
     detectEnvironment() {
         try {
-            // Check if we're in Office Online (Excel Web)
-            const isOfficeOnline = typeof Office !== 'undefined' && 
-                                 Office.context && 
-                                 Office.context.host && 
-                                 Office.context.host.toLowerCase().includes('excel') &&
-                                 (window.location.hostname.includes('office.com') || 
-                                  window.location.hostname.includes('live.com') ||
-                                  window.location.hostname.includes('sharepoint.com') ||
-                                  window.location.protocol === 'https:' && window.parent !== window);
+            // Multiple detection strategies (based on successful test)
+            let isWebEnvironment = false;
 
-            // Additional web detection
-            const hasWebIndicators = window.navigator.userAgent.includes('Excel') || 
-                                   window.location.href.includes('office.com') ||
-                                   document.referrer.includes('office.com');
+            // Strategy 1: Office platform detection
+            if (typeof Office !== 'undefined' && Office.context && Office.context.platform) {
+                const platform = Office.context.platform.toString().toLowerCase();
+                isWebEnvironment = platform.includes('officeonline') || platform.includes('web');
+                console.log('🔍 Office platform detection:', platform, '→', isWebEnvironment);
+            }
 
-            if (isOfficeOnline || hasWebIndicators) {
+            // Strategy 2: URL-based detection (most reliable for Excel Web)
+            if (!isWebEnvironment) {
+                const hostname = window.location.hostname.toLowerCase();
+                const href = window.location.href.toLowerCase();
+                
+                isWebEnvironment = hostname.includes('office.com') || 
+                                 hostname.includes('live.com') || 
+                                 hostname.includes('sharepoint.com') ||
+                                 hostname.includes('officeapps.live.com') ||
+                                 hostname.includes('excel.officeapps.live.com') ||
+                                 href.includes('sharepoint.com') ||
+                                 href.includes('onmicrosoft.com');
+                                 
+                console.log('🔍 URL-based detection:', hostname, href.includes('sharepoint'), '→', isWebEnvironment);
+            }
+
+            // Strategy 3: Parent window detection (iframe context) + HTTPS
+            if (!isWebEnvironment) {
+                isWebEnvironment = window.parent !== window && window.location.protocol === 'https:';
+                console.log('🔍 Parent window + HTTPS detection:', '→', isWebEnvironment);
+            }
+
+            // Set environment based on detection
+            if (isWebEnvironment) {
                 this.environment = 'web';
                 this.connectionStrategy = 'proxy-fallback';
             } else {
@@ -393,6 +411,18 @@ class SmartFogLAMPManager {
 
 // Enhanced API functions using smart manager
 const smartManager = new SmartFogLAMPManager();
+
+// Make smartManager globally available for debugging/testing
+if (typeof window !== 'undefined') {
+    window.smartManager = smartManager;
+    window.SmartFogLAMPManager = SmartFogLAMPManager; // Also expose the class
+    
+    // Log availability for debugging
+    console.log('📋 Smart Connection System Ready:');
+    console.log('   - SmartFogLAMPManager class available:', typeof SmartFogLAMPManager !== 'undefined');
+    console.log('   - smartManager instance available:', typeof smartManager !== 'undefined');
+    console.log('   - Global window.smartManager set:', typeof window.smartManager !== 'undefined');
+}
 
 async function foglampPingSmart() {
     const response = await smartManager.smartFetch('/foglamp/ping');

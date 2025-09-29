@@ -13,8 +13,7 @@ export const elements = {
     connectivityBadge: () => document.getElementById("connectivity-badge"),
     proxyBadge: () => document.getElementById("proxy-badge"),
     activeInstanceDisplay: () => document.getElementById("active-instance-display"),
-    refreshConnections: () => document.getElementById("refresh-connections"),
-    resetConnections: () => document.getElementById("reset-connections"),
+    updateConnections: () => document.getElementById("update-connections"),
     proxyGuidance: () => document.getElementById("proxy-guidance"),
 
     // Add instance form

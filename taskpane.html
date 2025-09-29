@@ -28,8 +28,7 @@
                 </div>
             <div class="row">
                 <div class="stack">
-                    <button id="refresh-connections" type="button" title="Re-scan all instances and update status">Refresh Status</button>
-                    <button id="reset-connections" type="button" title="Reset all connections and force complete re-discovery">Reset Connections</button>
+                    <button id="update-connections" type="button" title="Check all instances, update status, and refresh connections">Update Connections</button>
                 </div>
             </div>
                 <div id="proxy-guidance" class="feedback-area warning" style="display: none;">
@@ -195,8 +194,7 @@
             connectivityBadge: () => document.getElementById("connectivity-badge"),
             proxyBadge: () => document.getElementById("proxy-badge"),
             activeInstanceDisplay: () => document.getElementById("active-instance-display"),
-            refreshConnections: () => document.getElementById("refresh-connections"),
-            resetConnections: () => document.getElementById("reset-connections"),
+            updateConnections: () => document.getElementById("update-connections"),
             proxyGuidance: () => document.getElementById("proxy-guidance"),
             baseUrl: () => document.getElementById("fl-base-url"),
             register: () => document.getElementById("fl-register"),

@@ -64,8 +64,7 @@ import {
     eventHandlerManager,
     setupEventListeners,
     handleAddInstance,
-    handleRefreshStatus,
-    handleResetConnections
+    handleUpdateConnections
 } from './events/handlers.js';
 
 /**
@@ -159,8 +158,7 @@ class FogLAMPDataLink {
         // Expose event handler functions globally for backward compatibility
         window.setupEventListeners = setupEventListeners;
         window.handleAddInstance = handleAddInstance;
-        window.handleRefreshStatus = handleRefreshStatus;
-        window.handleResetConnections = handleResetConnections;
+        window.handleUpdateConnections = handleUpdateConnections;
     }
 
     /**

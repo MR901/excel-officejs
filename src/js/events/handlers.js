@@ -17,8 +17,7 @@ export class EventHandlerManager {
     constructor() {
         this.eventListeners = new Map(); // Track registered event listeners
         this.addInstanceTimeout = null; // Debounce timeout for add instance
-        this.refreshStatusInProgress = false; // Prevent multiple simultaneous refresh
-        this.resetConnectionsInProgress = false; // Prevent multiple resets
+        this.updateConnectionsInProgress = false; // Prevent multiple simultaneous updates
     }
 
     /**
@@ -99,37 +98,65 @@ export class EventHandlerManager {
     }
 
     /**
-     * Handle refresh status button click - pings all instances
+     * Handle update connections - comprehensive connection management
+     * Combines smart refresh with full reset when needed
      */
-    async handleRefreshStatus() {
-        if (this.refreshStatusInProgress) {
-            logMessage('info', 'Refresh already in progress, skipping');
+    async handleUpdateConnections() {
+        if (this.updateConnectionsInProgress) {
+            logMessage('info', 'Update connections already in progress, skipping');
             return;
         }
 
-        this.refreshStatusInProgress = true;
+        this.updateConnectionsInProgress = true;
 
         try {
             const instances = getInstances();
             
             if (instances.length === 0) {
-                logMessage('info', 'Refresh: no instances to check');
+                logMessage('info', 'Update connections: no instances to check');
                 return;
             }
 
-            logMessage('info', `Refreshing status for ${instances.length} instances...`);
+            logMessage('info', `🔄 Updating connections for ${instances.length} instances...`);
 
-            // Force smart manager to re-discover instances if available
+            // Phase 1: Smart Manager Reset & Re-discovery
             if (window.smartManager) {
                 try {
+                    logMessage('info', '🔄 Phase 1: Resetting connection state...');
+                    
+                    // Reset proxy state to force fresh detection
+                    window.smartManager.proxyAvailable = false;
+                    
+                    // Re-detect environment (Desktop vs Web)
+                    const oldEnvironment = window.smartManager.environment;
+                    window.smartManager.environment = window.smartManager.detectEnvironment();
+                    const environmentChanged = oldEnvironment !== window.smartManager.environment;
+                    
+                    if (environmentChanged) {
+                        logMessage('info', `Environment changed: ${oldEnvironment} → ${window.smartManager.environment}`);
+                    }
+                    
+                    // Re-check proxy availability
+                    await window.smartManager.checkProxyAvailability();
+                    
+                    // Force complete instance re-discovery
                     await window.smartManager.discoverInstances();
-                    logMessage('info', 'Smart manager instance discovery refreshed');
+                    
+                    logMessage('info', '✅ Connection state reset completed', {
+                        environment: window.smartManager.environment,
+                        proxy: window.smartManager.proxyAvailable,
+                        environmentChanged
+                    });
                 } catch (error) {
-                    logMessage('warn', 'Smart manager refresh failed', { error: error.message });
+                    logMessage('warn', 'Smart manager reset failed, continuing with basic refresh', { 
+                        error: error.message 
+                    });
                 }
             }
 
-            // Ping all instances in parallel
+            // Phase 2: Comprehensive Instance Ping
+            logMessage('info', '🔄 Phase 2: Testing all instance connectivity...');
+            
             const pingPromises = instances.map(url => 
                 this.pingInstanceSafely(url).catch(error => ({
                     url,
@@ -140,9 +167,10 @@ export class EventHandlerManager {
 
             const results = await Promise.allSettled(pingPromises);
             
-            // Process results and update UI
+            // Process and analyze results
             let successful = 0;
             let failed = 0;
+            const resultDetails = [];
 
             results.forEach((result, index) => {
                 const url = instances[index];
@@ -151,124 +179,90 @@ export class EventHandlerManager {
                     const pingResult = result.value;
                     if (pingResult && pingResult.success !== false) {
                         successful++;
-                        logMessage('info', 'Instance refresh: success', { 
-                            url, 
+                        resultDetails.push({
+                            url,
+                            status: 'success', 
+                            pingMs: pingResult.pingMs,
+                            hostName: pingResult.hostName
+                        });
+                        logMessage('info', `✅ Instance reachable: ${url}`, { 
                             pingMs: pingResult.pingMs,
                             hostName: pingResult.hostName 
                         });
                     } else {
                         failed++;
-                        logMessage('warn', 'Instance refresh: failed', { 
-                            url, 
+                        resultDetails.push({
+                            url,
+                            status: 'failed',
+                            error: pingResult?.error
+                        });
+                        logMessage('warn', `❌ Instance unreachable: ${url}`, { 
                             error: pingResult?.error 
                         });
                     }
                 } else {
                     failed++;
-                    logMessage('error', 'Instance refresh: error', { 
-                        url, 
+                    resultDetails.push({
+                        url,
+                        status: 'error',
+                        error: result.reason?.message
+                    });
+                    logMessage('error', `⚠️ Instance error: ${url}`, { 
                         error: result.reason?.message 
                     });
                 }
             });
 
-            // Update UI components
-            this.updateUIAfterRefresh();
-
-            // Sync with smart manager to ensure consistent status
+            // Phase 3: Status Synchronization
+            logMessage('info', '🔄 Phase 3: Synchronizing system state...');
+            
+            // Sync with smart manager to ensure consistency
             if (window.syncFromSmartManager) {
                 try {
                     window.syncFromSmartManager();
+                    logMessage('info', '✅ Smart manager synchronization completed');
                 } catch (error) {
-                    logMessage('warn', 'Smart manager sync failed after refresh', { error: error.message });
+                    logMessage('warn', 'Smart manager sync failed', { error: error.message });
                 }
             }
+
+            // Phase 4: UI Updates
+            logMessage('info', '🔄 Phase 4: Updating user interface...');
+            
+            this.updateUIAfterRefresh();
 
             // Refresh asset list for active instance
             if (window.refreshAssetListForActiveInstance) {
                 try {
                     await window.refreshAssetListForActiveInstance();
+                    logMessage('info', '✅ Asset list refreshed');
                 } catch (error) {
                     logMessage('warn', 'Asset list refresh failed', { error: error.message });
                 }
             }
 
-            logMessage('info', 'Status refresh completed', { 
+            // Final Summary
+            const summary = {
                 total: instances.length,
                 successful,
-                failed
-            });
+                failed,
+                successRate: Math.round((successful / instances.length) * 100)
+            };
 
-        } catch (error) {
-            logMessage('error', 'Status refresh failed', { error: error.message });
-        } finally {
-            this.refreshStatusInProgress = false;
-        }
-    }
-
-    /**
-     * Handle reset connections - complete connection state reset
-     */
-    async handleResetConnections() {
-        if (this.resetConnectionsInProgress) {
-            logMessage('info', 'Reset already in progress, skipping');
-            return;
-        }
-
-        this.resetConnectionsInProgress = true;
-        
-        try {
-            logMessage('info', 'Resetting all connections - forcing complete re-discovery...');
+            logMessage('info', '🎉 Connection update completed!', summary);
             
-            // Clear any cached connection states in smart manager
-            if (window.smartManager) {
-                try {
-                    // Reset proxy state
-                    window.smartManager.proxyAvailable = false;
-                    
-                    // Re-detect environment
-                    window.smartManager.environment = window.smartManager.detectEnvironment();
-                    
-                    // Re-check proxy availability
-                    await window.smartManager.checkProxyAvailability();
-                    
-                    // Re-discover instances
-                    await window.smartManager.discoverInstances();
-                    
-                    logMessage('info', 'Smart manager state reset completed', {
-                        environment: window.smartManager.environment,
-                        proxy: window.smartManager.proxyAvailable
-                    });
-                } catch (error) {
-                    logMessage('error', 'Smart manager reset failed', { error: error.message });
-                }
+            if (successful === instances.length) {
+                logMessage('info', '✅ All instances are reachable and healthy');
+            } else if (successful > 0) {
+                logMessage('warn', `⚠️ ${failed} instance(s) unreachable - check network or instance status`);
+            } else {
+                logMessage('error', '❌ No instances reachable - check network connection and instance URLs');
             }
-
-            // Update UI components
-            this.updateUIAfterReset();
-
-            // Sync with smart manager after reset
-            if (window.syncFromSmartManager) {
-                try {
-                    window.syncFromSmartManager();
-                } catch (error) {
-                    logMessage('warn', 'Smart manager sync failed after reset', { error: error.message });
-                }
-            }
-
-            // Trigger a refresh status to validate all connections
-            setTimeout(() => {
-                if (!this.refreshStatusInProgress) {
-                    this.handleRefreshStatus();
-                }
-            }, 1000);
-
-            logMessage('info', 'Connection reset completed successfully');
 
         } catch (error) {
-            logMessage('error', 'Connection reset failed', { error: error.message });
+            logMessage('error', 'Connection update failed', { error: error.message });
         } finally {
-            this.resetConnectionsInProgress = false;
+            this.updateConnectionsInProgress = false;
         }
     }
 
@@ -343,11 +337,8 @@ export class EventHandlerManager {
         // Add Instance (Adaptive flow)
         this.addEventListenerSafely('register', 'click', () => this.handleAddInstance());
 
-        // Refresh Status
-        this.addEventListenerSafely('refreshConnections', 'click', () => this.handleRefreshStatus());
-
-        // Reset Connections
-        this.addEventListenerSafely('resetConnections', 'click', () => this.handleResetConnections());
+        // Update Connections (Merged refresh + reset)
+        this.addEventListenerSafely('updateConnections', 'click', () => this.handleUpdateConnections());
 
         // Check Summary
         this.addEventListenerSafely('checkSummary', 'click', () => this.handleGetSummary());
@@ -788,8 +779,7 @@ export const eventHandlerManager = new EventHandlerManager();
 // Export individual methods for backward compatibility
 export const setupEventListeners = () => eventHandlerManager.setupEventListeners();
 export const handleAddInstance = () => eventHandlerManager.handleAddInstance();
-export const handleRefreshStatus = () => eventHandlerManager.handleRefreshStatus();
-export const handleResetConnections = () => eventHandlerManager.handleResetConnections();
+export const handleUpdateConnections = () => eventHandlerManager.handleUpdateConnections();
 
 // Export singleton as default
 export default eventHandlerManager;

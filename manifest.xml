@@ -136,15 +136,15 @@
         <bt:Url id="FunctionFile.Url" DefaultValue="https://mr901.github.io/excel-officejs/commands.html" />
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="MyTab.TabLabel" DefaultValue="DataLink" />
-        <bt:String id="MyCommandsGroup.Label" DefaultValue="MyGroup" />
-        <bt:String id="MyTaskpaneButton.Label" DefaultValue="Show Taskpane" />
+        <bt:String id="MyTab.TabLabel" DefaultValue="FogLAMP DataLink" />
+        <bt:String id="MyCommandsGroup.Label" DefaultValue="FogLAMP Tools" />
+        <bt:String id="MyTaskpaneButton.Label" DefaultValue="FogLAMP Console" />
         <bt:String id="HelpGroup.Label" DefaultValue="Help &amp; Links" />
         <bt:String id="DocsButton.Label" DefaultValue="Reference Doc" />
         <bt:String id="ContactButton.Label" DefaultValue="Contact Us" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="MyTaskpaneButton.Tooltip" DefaultValue="Click to show the task pane" />
+        <bt:String id="MyTaskpaneButton.Tooltip" DefaultValue="Open FogLAMP DataLink console to manage instances and data" />
         <bt:String id="DocsButton.Tooltip" DefaultValue="Open FogLAMP documentation in your browser" />
         <bt:String id="ContactButton.Tooltip" DefaultValue="Open Dianomic contact page in your browser" />
       </bt:LongStrings>

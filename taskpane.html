@@ -373,45 +373,8 @@
             if (active) sel.value = active;
         }
 
-        // FogLAMP API helpers
-        async function foglampPing(baseUrl) {
-            const res = await fetch(baseUrl + "/foglamp/ping");
-            if (!res.ok) throw new Error("Ping failed: " + res.status);
-            return res.json();
-        }
-
-        async function foglampStatistics(baseUrl) {
-            const res = await fetch(baseUrl + "/foglamp/statistics");
-            if (!res.ok) throw new Error("Statistics failed: " + res.status);
-            return res.json();
-        }
-
-        async function foglampAssets(baseUrl) {
-            const res = await fetch(baseUrl + "/foglamp/asset");
-            if (!res.ok) throw new Error("Assets failed: " + res.status);
-            return res.json();
-        }
-
-        async function foglampAssetReadings(baseUrl, asset, datapoint, limit) {
-            const dp = (datapoint || "").trim();
-            const path = dp ? `/foglamp/asset/${asset}/${dp}` : `/foglamp/asset/${asset}`;
-            const params = new URLSearchParams();
-            if (limit != null) params.set("limit", String(limit));
-            const skipVal = document.getElementById("fl-skip").value;
-            if (skipVal) params.set("skip", String(parseInt(skipVal, 10)));
-            const sec = document.getElementById("fl-seconds").value;
-            const min = document.getElementById("fl-minutes").value;
-            const hr = document.getElementById("fl-hours").value;
-            const prev = document.getElementById("fl-previous").value;
-            if (sec) params.set("seconds", String(parseInt(sec, 10)));
-            else if (min) params.set("minutes", String(parseInt(min, 10)));
-            else if (hr) params.set("hours", String(parseInt(hr, 10)));
-            if (prev) params.set("previous", String(parseInt(prev, 10)));
-            const url = `${baseUrl}${path}?${params.toString()}`;
-            const res = await fetch(url);
-            if (!res.ok) throw new Error("Readings failed: " + res.status);
-            return res.json();
-        }
+        // Note: FogLAMP API calls now use smart connection manager (smart-connection.js)
+        // Functions: foglampPingSmart, foglampStatisticsSmart, foglampAssetsSmart, foglampAssetReadingsSmart
 
         // Excel helpers
         async function ensureWorksheet(context, name) {

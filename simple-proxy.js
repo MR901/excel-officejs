@@ -16,28 +16,7 @@ let INSTANCES = {
     'local': 'http://127.0.0.1:8081' // Default local instance
 };
 
-// Function to load instances from Excel add-in (via API call)
-async function loadInstancesFromAddIn() {
-    try {
-        // Try to get instances configuration from a well-known location
-        // This could be enhanced to read from a config file or database
-        console.log('📡 Using default instance configuration');
-        console.log('💡 Tip: Instances will be auto-discovered from your Excel add-in registrations');
-        
-        // Keep the default local instance
-        return INSTANCES;
-    } catch (error) {
-        console.warn('⚠️  Could not load dynamic instances, using defaults');
-        return INSTANCES;
-    }
-}
-
-// API endpoint to update instances dynamically
-function updateInstances(newInstances) {
-    INSTANCES = { ...INSTANCES, ...newInstances };
-    console.log('🔄 Updated proxy instances:', Object.keys(INSTANCES));
-    return INSTANCES;
-}
+// Note: Instances are updated dynamically via the /config POST endpoint
 
 // CORS headers
 function setCORSHeaders(res) {
@@ -178,14 +157,19 @@ const server = http.createServer((req, res) => {
     // 404 for unknown routes
     setCORSHeaders(res);
     res.writeHead(404, {'Content-Type': 'application/json'});
+    
+    // Generate dynamic examples based on current instances
+    const instanceNames = Object.keys(INSTANCES);
+    const examples = instanceNames.slice(0, 3).map((name, index) => {
+        const endpoints = ['/foglamp/ping', '/foglamp/statistics', '/foglamp/asset'];
+        return `/${name}${endpoints[index] || '/foglamp/ping'}`;
+    });
+    
     res.end(JSON.stringify({
         error: 'Route not found',
-        availableInstances: Object.keys(INSTANCES).map(name => `/${name}`),
-        examples: [
-            '/local/foglamp/ping',
-            '/adm1/foglamp/statistics',
-            '/adm2/foglamp/asset'
-        ]
+        availableInstances: instanceNames.map(name => `/${name}`),
+        examples: examples.length > 0 ? examples : ['/local/foglamp/ping'],
+        tip: 'Use POST /config to add more instances dynamically'
     }));
 });
 

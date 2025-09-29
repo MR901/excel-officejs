@@ -11,6 +11,13 @@ class SmartFogLAMPManager {
         // Dynamic instances - loaded from user registrations
         this.targetInstances = [];
         this.proxyInstances = [];
+        
+        // Configuration constants
+        this.PROXY_PORT = 3001;
+        this.DEFAULT_FOGLAMP_PORT = '8081';
+        this.PROXY_TIMEOUT_MS = 2000;
+        this.CONNECTION_TIMEOUT_MS = 3000;
+        this.PROXY_BASE_URL = `http://localhost:${this.PROXY_PORT}`;
     }
 
     // Load instances from user registration system
@@ -36,7 +43,7 @@ class SmartFogLAMPManager {
                 const urlPath = this.generateProxyPath(instance.url);
                 return {
                     name: `${instance.name} (Proxy)`,
-                    url: `http://localhost:3001/${urlPath}`,
+                    url: `${this.PROXY_BASE_URL}/${urlPath}`,
                     priority: instance.priority,
                     originalUrl: instance.url
                 };
@@ -51,7 +58,7 @@ class SmartFogLAMPManager {
         try {
             const parsed = new URL(url);
             const host = parsed.hostname;
-            const port = parsed.port || '8081';
+            const port = parsed.port || this.DEFAULT_FOGLAMP_PORT;
             
             // Create a simple identifier from IP/hostname
             if (host === '127.0.0.1' || host === 'localhost') {
@@ -122,9 +129,9 @@ class SmartFogLAMPManager {
     async checkProxyAvailability() {
         try {
             const controller = new AbortController();
-            setTimeout(() => controller.abort(), 2000);
+            setTimeout(() => controller.abort(), this.PROXY_TIMEOUT_MS);
 
-            const response = await fetch('http://localhost:3001/health', {
+            const response = await fetch(`${this.PROXY_BASE_URL}/health`, {
                 method: 'GET',
                 signal: controller.signal
             });
@@ -151,7 +158,7 @@ class SmartFogLAMPManager {
         try {
             const proxyConfig = this.getProxyConfiguration();
             
-            const response = await fetch('http://localhost:3001/config', {
+            const response = await fetch(`${this.PROXY_BASE_URL}/config`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -168,7 +175,7 @@ class SmartFogLAMPManager {
                 // Update proxy instances based on what was actually configured
                 this.proxyInstances = Object.keys(proxyConfig).map((path, index) => ({
                     name: `${path.replace(/-/g, '.')} (Proxy)`,
-                    url: `http://localhost:3001/${path}`,
+                    url: `${this.PROXY_BASE_URL}/${path}`,
                     priority: index + 1,
                     originalUrl: proxyConfig[path]
                 }));
@@ -188,7 +195,7 @@ class SmartFogLAMPManager {
     async testDirectConnection(instance) {
         try {
             const controller = new AbortController();
-            setTimeout(() => controller.abort(), 3000);
+            setTimeout(() => controller.abort(), this.CONNECTION_TIMEOUT_MS);
 
             const response = await fetch(`${instance.url}/foglamp/ping`, {
                 method: 'GET',
@@ -218,7 +225,7 @@ class SmartFogLAMPManager {
     async testProxyConnection(instance) {
         try {
             const controller = new AbortController();
-            setTimeout(() => controller.abort(), 3000);
+            setTimeout(() => controller.abort(), this.CONNECTION_TIMEOUT_MS);
 
             const response = await fetch(`${instance.url}/foglamp/ping`, {
                 method: 'GET',

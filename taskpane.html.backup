@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FogLAMP Data Link</title>
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <script type="text/javascript" src="smart-connection.js?v=4"></script>
+    <style>
+        body { 
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; 
+            font-size: 13px; 
+            margin: 0; 
+            padding: 0; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+        }
+        
+        /* 2-section layout */
+        .app-body { 
+            flex: 1 1 auto; 
+            overflow-y: auto; 
+            padding: 12px; 
+        }
+        .app-console { 
+            flex: 0 0 var(--console-height, 28px); 
+            background: #0b0f17; 
+            border-top: 1px solid #232b3a; 
+            position: relative; 
+        }
+        
+        
+        /* Content sections */
+        details { border: 1px solid #e1e4e8; border-radius: 6px; padding: 8px 10px; background: #fff; margin-bottom: 10px; }
+        summary { font-weight: 600; cursor: pointer; outline: none; }
+        summary::-webkit-details-marker { display: none; }
+        .section-content { margin-top: 8px; }
+        .row { margin-bottom: 8px; }
+        .row label { font-weight: 600; }
+        
+        /* Form elements */
+        input[type="text"], input[type="number"], select { width: 100%; box-sizing: border-box; padding: 6px; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 6px 10px; border: 1px solid #d0d7de; background: #f6f8fa; border-radius: 6px; cursor: pointer; }
+        button:hover { background: #eef1f4; }
+        .btn-row > button { margin-right: 6px; }
+        
+        /* Utilities */
+        .muted { color: #57606a; }
+        .info { display:inline-flex; align-items:flex-start; margin-left: 4px; cursor: help; color: #9ca3af; font-size: 11px; line-height: 1; vertical-align: top; }
+        .info img { height: 10px; width: 10px; opacity: 0.8; margin-bottom: 4px; margin-top: 1px; }
+        .stack { display: flex; gap: 8px; flex-wrap: wrap; }
+        .stack > * { flex: 1 1 auto; }
+        .small { font-size: 12px; }
+        .code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+        .live-badge { display: inline-block; background: #16a34a; color: #ffffff; border-radius: 999px; padding: 2px 8px; font-size: 11px; margin-left: 8px; vertical-align: middle; }
+        
+        /* Console styling */
+        .console-resizer { 
+            height: 3px; 
+            cursor: ns-resize; 
+            background: #374151; 
+            border-top: 1px solid #4b5563;
+            transition: background-color 0.15s ease;
+        }
+        .console-resizer:hover { background: #6b7280; }
+        .console-header { 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            padding: 4px 12px; 
+            color: #e5e7eb; 
+            background: #1f2937; 
+            height: 24px;
+            box-sizing: border-box;
+        }
+        .console-title { font-weight: 600; font-size: 11px; }
+        .console-content { 
+            height: calc(var(--console-height, 28px) - 28px); 
+            overflow-y: auto; 
+            padding: 6px 12px; 
+            background: #0b0f17; 
+        }
+        .status-pre { 
+            white-space: pre-wrap; 
+            background: transparent; 
+            color: #f5f5f5; 
+            padding: 0; 
+            border: none; 
+            border-radius: 0; 
+            min-height: auto; 
+            max-height: none; 
+            overflow: visible; 
+            margin: 0; 
+            font-size: 11px; 
+            line-height: 1.4; 
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Scrollable Interaction Area -->
+    <div class="app-body">
+        <!-- FogLAMP DataLink UI (grouped + collapsible) -->
+    <details>
+        <summary>Register FogLAMP Instance</summary>
+        <div class="section-content">
+            <div class="row">
+                <label for="fl-base-url">FogLAMP Base URL <span class="info" title="Example: http://127.0.0.1:8081"><img src="icons/info-icon-16.png" alt="info" /></span></label>
+                <input id="fl-base-url" type="text" placeholder="http://127.0.0.1:8081" />
+                <div class="btn-row" style="margin-top: 6px;">
+                    <button id="fl-register" type="button" title="Save this FogLAMP URL and set it active">Register</button>
+                    <button id="fl-ping" type="button" title="Ping the active FogLAMP instance">Ping</button>
+                </div>
+            </div>
+        </div>
+    </details>
+
+    <details id="connection-status-section" open>
+        <summary id="connection-status-header">Connection Status <span class="muted small">(auto-detection)</span></summary>
+        <div class="section-content">
+            <div class="row">
+                <div id="environment-info" class="small muted">Detecting environment...</div>
+            </div>
+            <div class="row">
+                <div id="connection-summary">Checking connections...</div>
+            </div>
+            <div id="proxy-guidance" class="row" style="display: none;">
+                <div class="small" style="background: #f6f8fa; padding: 8px; border: 1px solid #d0d7de; border-radius: 6px; margin-top: 4px;">
+                    <strong>💡 To access remote FogLAMP instances in Excel Web:</strong><br>
+                    1. Download <code>simple-proxy.js</code> from this repository<br>
+                    2. Run: <code>node simple-proxy.js</code><br>
+                    3. Click "Refresh" below to detect proxy
+                </div>
+            </div>
+            <div class="row">
+                <button id="refresh-connections" type="button" title="Re-scan for available FogLAMP instances">Refresh Connections</button>
+            </div>
+        </div>
+    </details>
+
+    <details open>
+        <summary>FogLAMP – Registered Instances <span class="muted small">(select & manage)</span></summary>
+        <div class="section-content">
+            <div class="row">
+                <label for="fl-list">Registered Instances <span class="info" title="Active instance is preselected"><img src="icons/info-icon-16.png" alt="info" /></span></label>
+                <div class="stack">
+                    <select id="fl-list"></select>
+                    <div class="btn-row" style="align-self: center;">
+                        <button id="fl-set-active" type="button" title="Make the selected instance active">Set Active</button>
+                        <button id="fl-refresh-list" type="button" title="Ping all and refresh statuses">Check Status</button>
+                        <button id="fl-remove" type="button" title="Remove the selected instance">Remove</button>
+                    </div>
+                </div>
+            </div>
+            <details>
+                <summary>Check summary statistics for active instance</summary>
+                <div class="section-content">
+                    <div class="row">
+                        <button id="fl-check-summary" type="button" title="Ping, fetch statistics and assets summary for the active instance">Check</button>
+                    </div>
+                    <pre id="fl-summary" class="status-pre"></pre>
+                </div>
+            </details>
+        </div>
+    </details>
+
+    <details>
+        <summary>Publish Status <span class="muted small">(ping, statistics, assets → sheet)</span></summary>
+        <div class="section-content">
+            <div class="row">
+                <button id="fl-write-status" type="button" title="Writes ping, statistics, and assets to the 'foglamp status' sheet">Write FogLAMP Status to sheet "foglamp status"</button>
+            </div>
+        </div>
+    </details>
+
+    <details>
+        <summary>Publish Asset Readings <span class="muted small">(fetch → sheet)</span></summary>
+        <div class="section-content">
+            <div class="row">
+                <label for="fl-asset">Asset <span class="info" title="Asset name as shown by the assets API"><img src="icons/info-icon-16.png" alt="info" /></span></label>
+                <input id="fl-asset" type="text" placeholder="e.g. sinusoid" />
+            </div>
+            <div class="row">
+                <label for="fl-datapoint">Datapoint (optional) <span class="info" title="Leave empty to retrieve all datapoints for the asset"><img src="icons/info-icon-16.png" alt="info" /></span></label>
+                <input id="fl-datapoint" type="text" placeholder="e.g. value (leave empty for all)" />
+            </div>
+            <div class="row">
+                <label for="fl-limit">Limit <span class="info" title="Number of latest readings to return (1-10000)"><img src="icons/info-icon-16.png" alt="info" /></span></label>
+                <input id="fl-limit" type="number" min="1" max="10000" value="60" />
+            </div>
+            <div class="row">
+                <label for="fl-skip">Skip <span class="info" title="Number of readings to skip (pagination)"><img src="icons/info-icon-16.png" alt="info" /></span></label>
+                <input id="fl-skip" type="number" min="0" value="0" />
+            </div>
+            <div class="row">
+                <label>Time window (use only one) <span class="info" title="Only one of seconds, minutes, or hours can be used; using a time window disallows limit/skip"><img src="icons/info-icon-16.png" alt="info" /></span></label>
+                <div class="stack">
+                    <input id="fl-seconds" type="number" min="1" placeholder="seconds" />
+                    <input id="fl-minutes" type="number" min="1" placeholder="minutes" />
+                    <input id="fl-hours" type="number" min="1" placeholder="hours" />
+                </div>
+            </div>
+            <div class="row">
+                <label for="fl-previous">Previous <span class="info" title="Used with a time window; defines how long ago the data should end"><img src="icons/info-icon-16.png" alt="info" /></span></label>
+                <input id="fl-previous" type="number" min="1" placeholder="previous" />
+            </div>
+            <div class="row">
+                <button id="fl-get-readings" type="button" title="Writes readings to a sheet named 'asset reading - <asset>'">Get Readings → sheet "asset reading - &lt;asset&gt;"</button>
+            </div>
+        </div>
+    </details>
+
+        <details>
+            <summary>Demo <span class="muted small">(template sample)</span></summary>
+            <div class="section-content">
+                <p>Hit the Run button to paint the selected cells yellow and write the address to cell A1!</p>
+                <button id="run-btn" type="button">Run</button>
+            </div>
+        </details>
+    </div>
+
+    <!-- Draggable Console -->
+    <div class="app-console">
+        <div class="console-resizer" title="Drag to resize console"></div>
+        <div class="console-header">
+            <div class="console-title">Console <span class="muted small">live logs & messages</span></div>
+            <span class="live-badge" title="Status updates appear here in real time">LIVE</span>
+        </div>
+        <div class="console-content">
+            <pre id="fl-status" class="status-pre"></pre>
+        </div>
+    </div>
+    <script>
+        // Initialize Office.js
+        Office.onReady(function (info) { });
+
+        // Add a click event listener to the button
+        document.getElementById("run-btn") && document.getElementById("run-btn").addEventListener("click", run);
+
+        // Based on 'Basic API call' sample from ScriptLab
+        async function run() {
+            await Excel.run(async (context) => {
+                const range = context.workbook.getSelectedRange();
+                range.format.fill.color = "yellow";
+                range.load("address");
+
+                await context.sync();
+
+                const sheets = context.workbook.worksheets;
+                sheets.getItem("Sheet1").getRange("A1").values = [["The selected address was " + range.address + "."]];
+            });
+        }
+
+        // =============================
+        // FogLAMP DataLink prototype JS
+        // =============================
+
+        const STORAGE_KEYS = {
+            INSTANCES: "FOGLAMP_INSTANCES",
+            ACTIVE: "FOGLAMP_ACTIVE"
+        };
+
+        const els = {
+            baseUrl: () => document.getElementById("fl-base-url"),
+            register: () => document.getElementById("fl-register"),
+            ping: () => document.getElementById("fl-ping"),
+            list: () => document.getElementById("fl-list"),
+            setActive: () => document.getElementById("fl-set-active"),
+            refreshList: () => document.getElementById("fl-refresh-list"),
+            remove: () => document.getElementById("fl-remove"),
+            writeStatus: () => document.getElementById("fl-write-status"),
+            asset: () => document.getElementById("fl-asset"),
+            datapoint: () => document.getElementById("fl-datapoint"),
+            limit: () => document.getElementById("fl-limit"),
+            getReadings: () => document.getElementById("fl-get-readings"),
+            status: () => document.getElementById("fl-status")
+        };
+
+        // Storage helpers
+        function getInstances() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEYS.INSTANCES);
+                return raw ? JSON.parse(raw) : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveInstances(instances) {
+            localStorage.setItem(STORAGE_KEYS.INSTANCES, JSON.stringify(instances));
+        }
+
+        function addInstance(baseUrl) {
+            const url = normalizeBaseUrl(baseUrl);
+            if (!url) return false;
+            const instances = getInstances();
+            if (!instances.includes(url)) {
+                instances.push(url);
+                saveInstances(instances);
+            }
+            // Set as active by default when added
+            localStorage.setItem(STORAGE_KEYS.ACTIVE, url);
+            return true;
+        }
+
+        function getActiveInstance() {
+            const active = localStorage.getItem(STORAGE_KEYS.ACTIVE);
+            if (active) return active;
+            const instances = getInstances();
+            return instances.length ? instances[0] : null;
+        }
+
+        function setActiveInstance(url) {
+            localStorage.setItem(STORAGE_KEYS.ACTIVE, url);
+        }
+
+        // Make core functions globally available for smart-connection.js and debugging
+        window.getInstances = getInstances;
+        window.addInstance = addInstance;
+        window.getActiveInstance = getActiveInstance;
+        window.setActiveInstance = setActiveInstance;
+        window.saveInstances = saveInstances;
+
+        function normalizeBaseUrl(input) {
+            if (!input) return "";
+            let url = input.trim();
+            if (!/^https?:\/\//i.test(url)) {
+                url = "http://" + url;
+            }
+            url = url.replace(/\/$/, "");
+            return url;
+        }
+
+        function updateStatus(msg, obj) {
+            const out = [msg];
+            if (obj !== undefined) {
+                try {
+                    out.push(JSON.stringify(obj, null, 2));
+                } catch (e) {
+                    out.push(String(obj));
+                }
+            }
+            els.status().textContent = out.join("\n");
+            // Auto-scroll console content to bottom when new logs arrive
+            const container = document.querySelector('.console-content');
+            if (container) container.scrollTop = container.scrollHeight;
+        }
+
+        function updateSummary(preEl, payload) {
+            try {
+                preEl.textContent = JSON.stringify(payload, null, 2);
+            } catch (e) {
+                preEl.textContent = String(payload);
+            }
+        }
+
+        async function populateList() {
+            const sel = els.list();
+            while (sel.firstChild) sel.removeChild(sel.firstChild);
+            const instances = getInstances();
+            const active = getActiveInstance();
+            // Move active to front
+            const ordered = [...instances].sort((a,b) => (a===active? -1 : b===active? 1 : 0));
+            // Ping each to derive status dots
+            for (const u of ordered) {
+                let ok = false;
+                try {
+                    const res = await fetch(u + "/foglamp/ping", { method: "GET" });
+                    ok = res.ok;
+                } catch (e) { ok = false; }
+                const opt = document.createElement("option");
+                opt.value = u;
+                const dot = ok ? "🟢" : "⚪"; // green = ok, white/grey = not reachable
+                opt.textContent = `${dot} ${u}${u===active? " (active)" : ""}`;
+                sel.appendChild(opt);
+            }
+            // Ensure active selected by default
+            if (active) sel.value = active;
+        }
+
+        // Note: FogLAMP API calls now use smart connection manager (smart-connection.js)
+        // Functions: foglampPingSmart, foglampStatisticsSmart, foglampAssetsSmart, foglampAssetReadingsSmart
+
+        // Excel helpers
+        async function ensureWorksheet(context, name) {
+            const sheets = context.workbook.worksheets;
+            let sheet;
+            try {
+                sheet = sheets.getItem(name);
+                sheet.load("name");
+                await context.sync();
+            } catch (e) {
+                sheet = sheets.add(name);
+                await context.sync();
+            }
+            return sheet;
+        }
+
+        function writeTable(rangeObj, rows, header) {
+            if (header && header.length) {
+                rangeObj.getCell(0, 0).getResizedRange(0, header.length - 1).values = [header];
+                if (rows.length) {
+                    rangeObj.getOffsetRange(1, 0).getResizedRange(rows.length - 1, header.length - 1).values = rows;
+                }
+            } else if (rows.length) {
+                rangeObj.getResizedRange(rows.length - 1, rows[0].length - 1).values = rows;
+            }
+        }
+
+        function toKeyValueRows(obj) {
+            return Object.keys(obj || {}).map(k => [k, stringifyCell(obj[k])]);
+        }
+
+        function stringifyCell(v) {
+            if (v === null || v === undefined) return "";
+            if (typeof v === "object") return JSON.stringify(v);
+            return String(v);
+        }
+
+        function flattenAssets(list) {
+            if (!Array.isArray(list)) return { header: ["raw_json"], rows: [[JSON.stringify(list)]] };
+            const header = ["asset", "count"];
+            const rows = list.map(it => [it.asset || it.name || "", it.count != null ? it.count : ""]);
+            return { header, rows };
+        }
+
+        function flattenStatistics(list) {
+            if (!Array.isArray(list)) return { header: ["raw_json"], rows: [[JSON.stringify(list)]] };
+            const header = ["key", "value"];
+            const rows = list.map(it => [it.key || it.statistic || it.name || "", it.value != null ? it.value : ""]);
+            return { header, rows };
+        }
+
+        function flattenReadings(list) {
+            if (!Array.isArray(list)) return { header: ["raw_json"], rows: [[JSON.stringify(list)]] };
+            const dpSet = new Set();
+            list.forEach(it => {
+                const reading = it.reading || it.readings || {};
+                Object.keys(reading).forEach(k => dpSet.add(k));
+            });
+            const datapoints = Array.from(dpSet);
+            const header = ["timestamp", "asset", ...datapoints];
+            const rows = list.map(it => {
+                const r = it.reading || it.readings || {};
+                return [it.timestamp || "", it.asset || "", ...datapoints.map(k => r[k] != null ? r[k] : "")];
+            });
+            return { header, rows };
+        }
+
+        // Smart Connection Management
+        async function initializeSmartConnections() {
+            updateEnvironmentInfo('Detecting environment...');
+            updateConnectionSummary('Initializing...');
+
+            try {
+                console.log('🚀 Starting smart connection initialization...');
+                console.log('📋 Available functions:', {
+                    getInstances: typeof getInstances,
+                    addInstance: typeof addInstance,
+                    smartManager: typeof smartManager
+                });
+
+                // Detect environment
+                const environment = smartManager.detectEnvironment();
+                console.log('🔍 Environment detection result:', environment);
+                updateEnvironmentInfo(`Environment: ${environment === 'web' ? 'Excel Web 🌐' : 'Excel Desktop 📱'}`);
+
+                // Discover available instances
+                updateConnectionSummary('Discovering instances...');
+                console.log('🔍 Starting instance discovery...');
+                const instances = await smartManager.discoverInstances();
+                console.log('✅ Instance discovery complete:', instances.length, 'instances found');
+                
+                updateConnectionSummary('Discovery complete');
+                updateConnectionStatus();
+                
+                // Auto-populate instances in the list
+                await populateSmartInstances();
+                
+                console.log('✅ Smart connection initialization complete');
+                
+            } catch (error) {
+                console.error('❌ Smart connection initialization failed:', error);
+                updateConnectionSummary('Initialization failed: ' + error.message);
+            }
+        }
+
+        function updateEnvironmentInfo(message) {
+            const el = document.getElementById('environment-info');
+            if (el) el.textContent = message;
+        }
+
+        function updateConnectionSummary(message) {
+            const el = document.getElementById('connection-summary');
+            if (el) el.textContent = message;
+        }
+
+        function updateConnectionStatus() {
+            const status = smartManager.getConnectionStatus();
+            updateConnectionSummary(status.message);
+            
+            // Show proxy guidance if needed
+            const proxyGuidance = document.getElementById('proxy-guidance');
+            if (proxyGuidance) {
+                proxyGuidance.style.display = status.suggestion && status.suggestion.includes('proxy') ? 'block' : 'none';
+            }
+
+            // Update header color based on status
+            const header = document.getElementById('connection-status-header');
+            if (header) {
+                const summary = header.querySelector('.muted');
+                if (summary) {
+                    if (status.status === 'success') {
+                        summary.style.color = '#16a34a'; // green
+                        summary.textContent = '(all connected)';
+                    } else if (status.status === 'partial') {
+                        summary.style.color = '#ea580c'; // orange  
+                        summary.textContent = '(partial)';
+                    } else {
+                        summary.style.color = '#dc2626'; // red
+                        summary.textContent = '(connection issues)';
+                    }
+                }
+            }
+        }
+
+        async function populateSmartInstances() {
+            // Just refresh the UI list with what's already registered by users
+            // Don't auto-add instances - let users register them manually
+            populateList();
+        }
+
+        // Event wiring
+        document.addEventListener("DOMContentLoaded", async () => {
+            // Initialize smart connection manager
+            await initializeSmartConnections();
+            
+            // Wire buttons
+            els.register().addEventListener("click", async () => {
+                const url = normalizeBaseUrl(els.baseUrl().value);
+                if (!url) {
+                    updateStatus("Enter a FogLAMP Base URL, e.g. http://127.0.0.1:8081");
+                    return;
+                }
+                addInstance(url);
+                populateList();
+                updateStatus("Registered instance:", { url });
+                try {
+                    const data = await foglampPingSmart();
+                    updateStatus("Ping OK:", data);
+                } catch (err) {
+                    updateStatus("Ping failed.", { error: String(err) });
+                }
+            });
+
+            els.ping().addEventListener("click", async () => {
+                const url = getActiveInstance();
+                if (!url) return updateStatus("No active instance. Register or select one first.");
+                try {
+                    const data = await foglampPingSmart();
+                    updateStatus("Ping OK:", data);
+                } catch (err) {
+                    updateStatus("Ping failed.", { error: String(err) });
+                }
+            });
+
+            els.refreshList().addEventListener("click", () => {
+                populateList();
+                updateStatus("Statuses checked.");
+            });
+
+            els.setActive().addEventListener("click", () => {
+                const sel = els.list();
+                if (!sel.value) return updateStatus("Select an instance first.");
+                setActiveInstance(sel.value);
+                populateList();
+                updateStatus("Active instance set:", { url: sel.value });
+            });
+
+            els.remove().addEventListener("click", () => {
+                const sel = els.list();
+                const url = sel.value;
+                if (!url) return updateStatus("Select an instance to remove.");
+                const instances = getInstances().filter(u => u !== url);
+                saveInstances(instances);
+                if (getActiveInstance() === url) {
+                    localStorage.removeItem(STORAGE_KEYS.ACTIVE);
+                }
+                populateList();
+                updateStatus("Removed instance:", { url });
+            });
+
+            els.writeStatus().addEventListener("click", async () => {
+                const url = getActiveInstance();
+                if (!url) return updateStatus("No active instance. Register or select one first.");
+                updateStatus("Fetching FogLAMP status...");
+                try {
+                    const [ping, stats, assets] = await Promise.all([
+                        foglampPingSmart().catch(e => ({ error: String(e) })),
+                        foglampStatisticsSmart().catch(e => ({ error: String(e) })),
+                        foglampAssetsSmart().catch(e => ({ error: String(e) }))
+                    ]);
+
+                    await Excel.run(async (context) => {
+                        const sheet = await ensureWorksheet(context, "foglamp status");
+                        const start = sheet.getRange("A1");
+
+                        sheet.getUsedRange().clear();
+
+                        start.values = [["Ping"]];
+                        const pingRows = Array.isArray(ping) ? ping : toKeyValueRows(ping || {});
+                        writeTable(start.getOffsetRange(1, 0), pingRows, ["key", "value"]);
+
+                        const statsHeaderCell = start.getOffsetRange(pingRows.length + 3, 0);
+                        statsHeaderCell.values = [["Statistics"]];
+                        const { header: statsHeader, rows: statsRows } = flattenStatistics(stats);
+                        writeTable(statsHeaderCell.getOffsetRange(1, 0), statsRows, statsHeader);
+
+                        const assetsHeaderCell = statsHeaderCell.getOffsetRange(statsRows.length + 3, 0);
+                        assetsHeaderCell.values = [["Assets"]];
+                        const { header: assetsHeader, rows: assetsRows } = flattenAssets(assets);
+                        writeTable(assetsHeaderCell.getOffsetRange(1, 0), assetsRows, assetsHeader);
+                    });
+
+                    updateStatus("FogLAMP status written to sheet 'foglamp status'.");
+                } catch (err) {
+                    updateStatus("Failed to write FogLAMP status.", { error: String(err) });
+                }
+            });
+
+            els.getReadings().addEventListener("click", async () => {
+                const url = getActiveInstance();
+                if (!url) return updateStatus("No active instance. Register or select one first.");
+                const asset = (els.asset().value || "").trim();
+                const datapoint = (els.datapoint().value || "").trim();
+                const limit = Math.max(1, Math.min(10000, parseInt(els.limit().value || "60", 10)));
+                if (!asset) return updateStatus("Enter an asset name.");
+                updateStatus("Fetching readings...");
+                try {
+                    const data = await foglampAssetReadingsSmart(asset, datapoint, limit);
+                    const { header, rows } = flattenReadings(data);
+                    const sheetName = `asset reading - ${asset}`;
+                    await Excel.run(async (context) => {
+                        const sheet = await ensureWorksheet(context, sheetName);
+                        sheet.getUsedRange().clear();
+                        const start = sheet.getRange("A1");
+                        writeTable(start, rows, header);
+                    });
+                    updateStatus(`Wrote ${rows.length} rows to sheet '${sheetName}'.`);
+                } catch (err) {
+                    updateStatus("Failed to fetch/write readings.", { error: String(err) });
+                }
+            });
+
+            // Initial render
+            populateList();
+
+            // Wire summary checker
+            const summaryBtn = document.getElementById("fl-check-summary");
+            const summaryPre = document.getElementById("fl-summary");
+            summaryBtn.addEventListener("click", async () => {
+                const url = getActiveInstance();
+                if (!url) return updateSummary(summaryPre, { error: "No active instance" });
+                updateSummary(summaryPre, { status: "Checking..." });
+                try {
+                    const [ping, stats, assets] = await Promise.all([
+                        foglampPingSmart().catch(e => ({ error: String(e) })),
+                        foglampStatisticsSmart().catch(e => ({ error: String(e) })),
+                        foglampAssetsSmart().catch(e => ({ error: String(e) }))
+                    ]);
+                    updateSummary(summaryPre, { ping, statistics: stats, assets });
+                } catch (e) {
+                    updateSummary(summaryPre, { error: String(e) });
+                }
+            });
+
+            // Smart connection refresh button
+            document.getElementById("refresh-connections").addEventListener("click", async () => {
+                updateConnectionSummary('Refreshing...');
+                try {
+                    await smartManager.discoverInstances();
+                    updateConnectionStatus();
+                    await populateSmartInstances();
+                    updateStatus('Connection refresh complete');
+                } catch (error) {
+                    updateConnectionSummary('Refresh failed: ' + error.message);
+                    updateStatus('Connection refresh failed', { error: String(error) });
+                }
+            });
+
+            // Console drag-to-resize
+            const consoleEl = document.querySelector('.app-console');
+            const resizer = document.querySelector('.console-resizer');
+            let startY = 0;
+            let startH = 28; // Start collapsed
+            let isDragging = false;
+            
+            function setConsoleHeight(height) {
+                const minHeight = 28; // Collapsed height (header only)
+                const maxHeight = Math.min(500, window.innerHeight * 0.7); // Max 70% of viewport
+                const newHeight = Math.max(minHeight, Math.min(maxHeight, height));
+                document.documentElement.style.setProperty('--console-height', newHeight + 'px');
+                return newHeight;
+            }
+            
+            function onMouseMove(e) {
+                if (!isDragging) return;
+                const dy = startY - e.clientY; // Dragging up increases height
+                const newHeight = startH + dy;
+                setConsoleHeight(newHeight);
+            }
+            
+            function onMouseUp() {
+                isDragging = false;
+                window.removeEventListener('mousemove', onMouseMove);
+                window.removeEventListener('mouseup', onMouseUp);
+                document.body.style.userSelect = '';
+            }
+            
+            resizer.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                startY = e.clientY;
+                const currentHeight = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--console-height')) || 28;
+                startH = currentHeight;
+                document.body.style.userSelect = 'none'; // Prevent text selection while dragging
+                window.addEventListener('mousemove', onMouseMove);
+                window.addEventListener('mouseup', onMouseUp);
+            });
+            
+            // Initialize console height
+            setConsoleHeight(28);
+        });
+
+    </script>
+</body>
+
+</html>

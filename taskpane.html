@@ -55,6 +55,123 @@
         .small { font-size: 12px; }
         .code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
         .live-badge { display: inline-block; background: #16a34a; color: #ffffff; border-radius: 999px; padding: 2px 8px; font-size: 11px; margin-left: 8px; vertical-align: middle; }
+
+        /* Enhanced UI Components */
+        .badge { 
+            display: inline-block; 
+            padding: 4px 8px; 
+            border-radius: 999px; 
+            font-size: 11px; 
+            font-weight: 500;
+            background: #eef2ff; 
+            color: #3730a3; 
+            border: 1px solid #c7d2fe;
+            margin-right: 6px;
+        }
+        .badge.active { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+        .badge.warning { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+        .badge.error { background: #fee2e2; color: #dc2626; border-color: #fecaca; }
+        .badge.success { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+
+        .status-dot { 
+            display: inline-block; 
+            width: 8px; 
+            height: 8px; 
+            border-radius: 50%; 
+            margin-right: 6px; 
+            flex-shrink: 0;
+        }
+        .status-dot.reachable { background: #16a34a; }
+        .status-dot.unreachable { background: #dc2626; }
+        .status-dot.checking { background: #f59e0b; animation: pulse 1s infinite; }
+        .status-dot.unknown { background: #9ca3af; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .instance-row { 
+            display: flex; 
+            align-items: center; 
+            padding: 8px 12px; 
+            border: 1px solid #e5e7eb; 
+            border-radius: 6px; 
+            margin-bottom: 6px;
+            background: #ffffff;
+        }
+        .instance-row.active { 
+            background: #f0f9ff; 
+            border-color: #0ea5e9; 
+        }
+        .instance-info { 
+            flex: 1; 
+            min-width: 0; 
+        }
+        .instance-name { 
+            font-weight: 600; 
+            margin-bottom: 2px;
+            color: #111827;
+        }
+        .instance-url { 
+            font-size: 11px; 
+            color: #6b7280; 
+            word-break: break-all;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+        .instance-actions { 
+            display: flex; 
+            gap: 4px; 
+            margin-left: 8px;
+        }
+        .instance-actions button { 
+            padding: 4px 8px; 
+            font-size: 11px;
+            border: 1px solid #d1d5db;
+            background: #f9fafb;
+            color: #374151;
+        }
+        .instance-actions button:hover { 
+            background: #f3f4f6; 
+        }
+        .instance-actions button.primary { 
+            background: #2563eb; 
+            color: white; 
+            border-color: #2563eb;
+        }
+        .instance-actions button.primary:hover { 
+            background: #1d4ed8; 
+        }
+
+        .feedback-area { 
+            margin-top: 6px; 
+            padding: 6px 8px; 
+            border-radius: 4px; 
+            font-size: 12px;
+            display: none;
+        }
+        .feedback-area.success { 
+            background: #dcfce7; 
+            color: #166534; 
+            border: 1px solid #bbf7d0;
+        }
+        .feedback-area.warning { 
+            background: #fef3c7; 
+            color: #92400e; 
+            border: 1px solid #fde68a;
+        }
+        .feedback-area.error { 
+            background: #fee2e2; 
+            color: #dc2626; 
+            border: 1px solid #fecaca;
+        }
+
+        .empty-state { 
+            text-align: center; 
+            padding: 24px 12px; 
+            color: #9ca3af; 
+            font-style: italic;
+        }
         
         /* Console styling */
         .console-resizer { 
@@ -102,121 +219,112 @@
 <body>
     <!-- Scrollable Interaction Area -->
     <div class="app-body">
-        <!-- FogLAMP DataLink UI (grouped + collapsible) -->
-    <details>
-        <summary>Register FogLAMP Instance</summary>
-        <div class="section-content">
-            <div class="row">
-                <label for="fl-base-url">FogLAMP Base URL <span class="info" title="Example: http://127.0.0.1:8081"><img src="icons/info-icon-16.png" alt="info" /></span></label>
-                <input id="fl-base-url" type="text" placeholder="http://127.0.0.1:8081" />
-                <div class="btn-row" style="margin-top: 6px;">
-                    <button id="fl-register" type="button" title="Save this FogLAMP URL and set it active">Register</button>
-                    <button id="fl-ping" type="button" title="Ping the active FogLAMP instance">Ping</button>
-                </div>
-            </div>
-        </div>
-    </details>
-
-    <details id="connection-status-section" open>
-        <summary id="connection-status-header">Connection Status <span class="muted small">(auto-detection)</span></summary>
-        <div class="section-content">
-            <div class="row">
-                <div id="environment-info" class="small muted">Detecting environment...</div>
-            </div>
-            <div class="row">
-                <div id="connection-summary">Checking connections...</div>
-            </div>
-            <div id="proxy-guidance" class="row" style="display: none;">
-                <div class="small" style="background: #f6f8fa; padding: 8px; border: 1px solid #d0d7de; border-radius: 6px; margin-top: 4px;">
-                    <strong>💡 To access remote FogLAMP instances in Excel Web:</strong><br>
-                    1. Download <code>simple-proxy.js</code> from this repository<br>
-                    2. Run: <code>node simple-proxy.js</code><br>
-                    3. Click "Refresh" below to detect proxy
-                </div>
-            </div>
-            <div class="row">
-                <button id="refresh-connections" type="button" title="Re-scan for available FogLAMP instances">Refresh Connections</button>
-            </div>
-        </div>
-    </details>
-
-    <details open>
-        <summary>FogLAMP – Registered Instances <span class="muted small">(select & manage)</span></summary>
-        <div class="section-content">
-            <div class="row">
-                <label for="fl-list">Registered Instances <span class="info" title="Active instance is preselected"><img src="icons/info-icon-16.png" alt="info" /></span></label>
-                <div class="stack">
-                    <select id="fl-list"></select>
-                    <div class="btn-row" style="align-self: center;">
-                        <button id="fl-set-active" type="button" title="Make the selected instance active">Set Active</button>
-                        <button id="fl-refresh-list" type="button" title="Ping all and refresh statuses">Check Status</button>
-                        <button id="fl-remove" type="button" title="Remove the selected instance">Remove</button>
-                    </div>
-                </div>
-            </div>
-            <details>
-                <summary>Check summary statistics for active instance</summary>
-                <div class="section-content">
-                    <div class="row">
-                        <button id="fl-check-summary" type="button" title="Ping, fetch statistics and assets summary for the active instance">Check</button>
-                    </div>
-                    <pre id="fl-summary" class="status-pre"></pre>
-                </div>
-            </details>
-        </div>
-    </details>
-
-    <details>
-        <summary>Publish Status <span class="muted small">(ping, statistics, assets → sheet)</span></summary>
-        <div class="section-content">
-            <div class="row">
-                <button id="fl-write-status" type="button" title="Writes ping, statistics, and assets to the 'foglamp status' sheet">Write FogLAMP Status to sheet "foglamp status"</button>
-            </div>
-        </div>
-    </details>
-
-    <details>
-        <summary>Publish Asset Readings <span class="muted small">(fetch → sheet)</span></summary>
-        <div class="section-content">
-            <div class="row">
-                <label for="fl-asset">Asset <span class="info" title="Asset name as shown by the assets API"><img src="icons/info-icon-16.png" alt="info" /></span></label>
-                <input id="fl-asset" type="text" placeholder="e.g. sinusoid" />
-            </div>
-            <div class="row">
-                <label for="fl-datapoint">Datapoint (optional) <span class="info" title="Leave empty to retrieve all datapoints for the asset"><img src="icons/info-icon-16.png" alt="info" /></span></label>
-                <input id="fl-datapoint" type="text" placeholder="e.g. value (leave empty for all)" />
-            </div>
-            <div class="row">
-                <label for="fl-limit">Limit <span class="info" title="Number of latest readings to return (1-10000)"><img src="icons/info-icon-16.png" alt="info" /></span></label>
-                <input id="fl-limit" type="number" min="1" max="10000" value="60" />
-            </div>
-            <div class="row">
-                <label for="fl-skip">Skip <span class="info" title="Number of readings to skip (pagination)"><img src="icons/info-icon-16.png" alt="info" /></span></label>
-                <input id="fl-skip" type="number" min="0" value="0" />
-            </div>
-            <div class="row">
-                <label>Time window (use only one) <span class="info" title="Only one of seconds, minutes, or hours can be used; using a time window disallows limit/skip"><img src="icons/info-icon-16.png" alt="info" /></span></label>
-                <div class="stack">
-                    <input id="fl-seconds" type="number" min="1" placeholder="seconds" />
-                    <input id="fl-minutes" type="number" min="1" placeholder="minutes" />
-                    <input id="fl-hours" type="number" min="1" placeholder="hours" />
-                </div>
-            </div>
-            <div class="row">
-                <label for="fl-previous">Previous <span class="info" title="Used with a time window; defines how long ago the data should end"><img src="icons/info-icon-16.png" alt="info" /></span></label>
-                <input id="fl-previous" type="number" min="1" placeholder="previous" />
-            </div>
-            <div class="row">
-                <button id="fl-get-readings" type="button" title="Writes readings to a sheet named 'asset reading - <asset>'">Get Readings → sheet "asset reading - &lt;asset&gt;"</button>
-            </div>
-        </div>
-    </details>
-
-        <details>
-            <summary>Demo <span class="muted small">(template sample)</span></summary>
+        <!-- Overview / Connection Status -->
+        <details open>
+            <summary>Overview</summary>
             <div class="section-content">
-                <p>Hit the Run button to paint the selected cells yellow and write the address to cell A1!</p>
-                <button id="run-btn" type="button">Run</button>
+                <div class="row" style="margin-bottom: 12px;">
+                    <div id="environment-badge" class="badge">Detecting...</div>
+                    <div id="connectivity-badge" class="badge">Checking...</div>
+                    <div id="proxy-badge" class="badge">Unknown</div>
+                </div>
+                <div class="row" style="margin-bottom: 12px;">
+                    <div id="active-instance-display" class="small muted">No active instance</div>
+                </div>
+                <div class="row">
+                    <button id="refresh-connections" type="button" title="Re-scan all instances and update status">Refresh Status</button>
+                </div>
+                <div id="proxy-guidance" class="feedback-area warning" style="display: none;">
+                    <strong>💡 Excel Web detected:</strong> Run <code>node simple-proxy.js</code> locally to access private network instances.
+                </div>
+            </div>
+        </details>
+
+        <!-- FogLAMP Instances (Merged) -->
+        <details open>
+            <summary>FogLAMP Instances</summary>
+            <div class="section-content">
+                <!-- Add Instance -->
+                <div class="row">
+                    <label for="fl-base-url">Add Instance <span class="info" title="Enter FogLAMP URL (e.g., http://127.0.0.1:8081)"><img src="icons/info-icon-16.png" alt="info" /></span></label>
+                    <div class="stack">
+                        <input id="fl-base-url" type="text" placeholder="http://127.0.0.1:8081" />
+                        <button id="fl-register" type="button" title="Validate and add this FogLAMP instance">Add</button>
+                    </div>
+                </div>
+                
+                <!-- Adaptive Add Feedback -->
+                <div id="fl-add-feedback" class="feedback-area" style="display: none;"></div>
+                <div id="fl-add-actions" class="row" style="display: none; gap: 6px; margin-top: 6px;">
+                    <button id="fl-add-confirm" type="button" class="primary">Add</button>
+                    <button id="fl-add-skip" type="button">Skip</button>
+                </div>
+
+                <!-- Instance List -->
+                <div class="row" style="margin-top: 16px;">
+                    <div id="instances-container">
+                        <div class="empty-state" id="empty-instances">
+                            No instances yet. Add a FogLAMP URL to begin.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Instance Actions Summary -->
+                <div class="row" style="margin-top: 12px;">
+                    <details>
+                        <summary>Instance Summary</summary>
+                        <div class="section-content">
+                            <div class="row">
+                                <button id="fl-check-summary" type="button" title="Get detailed summary for active instance">Get Summary</button>
+                            </div>
+                            <pre id="fl-summary" class="status-pre"></pre>
+                        </div>
+                    </details>
+                </div>
+            </div>
+        </details>
+
+        <!-- Data Actions -->
+        <details>
+            <summary>Data Actions <span class="muted small">(Excel export)</span></summary>
+            <div class="section-content">
+                <div class="stack" style="margin-bottom: 12px;">
+                    <!-- Export Status -->
+                    <div style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px;">
+                        <div class="row">
+                            <strong>Export Status</strong>
+                            <div class="small muted">Ping, statistics, assets → formatted sheet</div>
+                        </div>
+                        <div class="row">
+                            <button id="fl-write-status" type="button" title="Export comprehensive status to Excel sheet">Export Status to Sheet</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Export Asset Readings -->
+                    <div style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px;">
+                        <div class="row">
+                            <strong>Export Asset Readings</strong>
+                            <div class="small muted">Asset data → formatted sheet</div>
+                        </div>
+                        <div class="row">
+                            <div class="stack">
+                                <select id="fl-asset-select" title="Select asset from available assets">
+                                    <option value="">Loading assets...</option>
+                                </select>
+                                <input id="fl-asset" type="text" placeholder="or type asset name" />
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="stack">
+                                <input id="fl-datapoint" type="text" placeholder="datapoint (optional)" />
+                                <input id="fl-limit" type="number" min="1" max="10000" value="100" placeholder="limit" style="max-width: 100px;" />
+                            </div>
+                        </div>
+                        <div class="row">
+                            <button id="fl-get-readings" type="button" title="Export asset readings to Excel sheet">Get Readings</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </details>
     </div>
@@ -262,66 +370,1166 @@
             ACTIVE: "FOGLAMP_ACTIVE"
         };
 
+        /**
+         * Enhanced UI element selectors
+         * Maps to the new redesigned interface components
+         */
         const els = {
+            // Overview badges
+            environmentBadge: () => document.getElementById("environment-badge"),
+            connectivityBadge: () => document.getElementById("connectivity-badge"),
+            proxyBadge: () => document.getElementById("proxy-badge"),
+            activeInstanceDisplay: () => document.getElementById("active-instance-display"),
+            refreshConnections: () => document.getElementById("refresh-connections"),
+            proxyGuidance: () => document.getElementById("proxy-guidance"),
+
+            // Add instance form
             baseUrl: () => document.getElementById("fl-base-url"),
             register: () => document.getElementById("fl-register"),
-            ping: () => document.getElementById("fl-ping"),
-            list: () => document.getElementById("fl-list"),
-            setActive: () => document.getElementById("fl-set-active"),
-            refreshList: () => document.getElementById("fl-refresh-list"),
-            remove: () => document.getElementById("fl-remove"),
+            addFeedback: () => document.getElementById("fl-add-feedback"),
+            addActions: () => document.getElementById("fl-add-actions"),
+            addConfirm: () => document.getElementById("fl-add-confirm"),
+            addSkip: () => document.getElementById("fl-add-skip"),
+
+            // Instance management
+            instancesContainer: () => document.getElementById("instances-container"),
+            emptyInstances: () => document.getElementById("empty-instances"),
+            checkSummary: () => document.getElementById("fl-check-summary"),
+            summary: () => document.getElementById("fl-summary"),
+
+            // Data actions
             writeStatus: () => document.getElementById("fl-write-status"),
+            assetSelect: () => document.getElementById("fl-asset-select"),
             asset: () => document.getElementById("fl-asset"),
             datapoint: () => document.getElementById("fl-datapoint"),
             limit: () => document.getElementById("fl-limit"),
             getReadings: () => document.getElementById("fl-get-readings"),
+
+            // Console
             status: () => document.getElementById("fl-status")
         };
 
-        // Storage helpers
+        // Enhanced Instance Storage System
+        // =================================
+        // This system manages both URL list (for backward compatibility) 
+        // and rich metadata for each instance
+
+        /**
+         * Storage key constants
+         */
+        const ENHANCED_STORAGE_KEYS = {
+            ...STORAGE_KEYS,
+            INSTANCE_METADATA: 'foglamp_instance_metadata'
+        };
+
+        /**
+         * Instance metadata structure:
+         * {
+         *   url: string,
+         *   name?: string,           // Optional user-provided name
+         *   hostName?: string,       // From FogLAMP /ping response
+         *   lastStatus: 'reachable'|'unreachable'|'checking'|'unknown',
+         *   lastPingMs?: number,     // Response time in milliseconds
+         *   lastCheckedAt?: string,  // ISO timestamp
+         *   addedAt: string,         // ISO timestamp when first added
+         *   lastError?: string       // Last error message if any
+         * }
+         */
+
+        /**
+         * Get all instance metadata
+         * @returns {Object} Map of URL -> metadata
+         */
+        function getInstanceMetadata() {
+            try {
+                const raw = localStorage.getItem(ENHANCED_STORAGE_KEYS.INSTANCE_METADATA);
+                return raw ? JSON.parse(raw) : {};
+            } catch (e) {
+                console.warn('Failed to parse instance metadata:', e);
+                return {};
+            }
+        }
+
+        /**
+         * Save instance metadata map
+         * @param {Object} metadataMap - Map of URL -> metadata
+         */
+        function saveInstanceMetadata(metadataMap) {
+            try {
+                localStorage.setItem(ENHANCED_STORAGE_KEYS.INSTANCE_METADATA, JSON.stringify(metadataMap));
+            } catch (e) {
+                console.error('Failed to save instance metadata:', e);
+            }
+        }
+
+        /**
+         * Get metadata for specific instance
+         * @param {string} url - Instance URL
+         * @returns {Object} Instance metadata or default structure
+         */
+        function getInstanceMeta(url) {
+            const allMeta = getInstanceMetadata();
+            return allMeta[url] || {
+                url,
+                lastStatus: 'unknown',
+                addedAt: new Date().toISOString()
+            };
+        }
+
+        /**
+         * Update metadata for specific instance
+         * @param {string} url - Instance URL
+         * @param {Object} updates - Partial metadata updates
+         */
+        function updateInstanceMeta(url, updates) {
+            const allMeta = getInstanceMetadata();
+            allMeta[url] = {
+                ...getInstanceMeta(url),
+                ...updates,
+                url // Ensure URL is always present
+            };
+            saveInstanceMetadata(allMeta);
+        }
+
+        /**
+         * Get enhanced instance list with metadata
+         * @returns {Array} Array of enhanced instance objects
+         */
+        function getEnhancedInstances() {
+            const urls = getInstances();
+            const metadata = getInstanceMetadata();
+            return urls.map(url => ({
+                ...getInstanceMeta(url),
+                url
+            }));
+        }
+
+        // Legacy Storage Functions (Maintain Compatibility)
+        // ================================================
+
+        /**
+         * Get instance URLs (legacy compatibility)
+         * @returns {Array<string>} Array of instance URLs
+         */
         function getInstances() {
             try {
                 const raw = localStorage.getItem(STORAGE_KEYS.INSTANCES);
                 return raw ? JSON.parse(raw) : [];
             } catch (e) {
+                console.warn('Failed to parse instances:', e);
                 return [];
             }
         }
 
+        /**
+         * Save instance URLs (legacy compatibility)
+         * @param {Array<string>} instances - Array of URLs
+         */
         function saveInstances(instances) {
-            localStorage.setItem(STORAGE_KEYS.INSTANCES, JSON.stringify(instances));
+            try {
+                localStorage.setItem(STORAGE_KEYS.INSTANCES, JSON.stringify(instances));
+            } catch (e) {
+                console.error('Failed to save instances:', e);
+            }
         }
 
-        function addInstance(baseUrl) {
+        /**
+         * Add new instance with enhanced metadata support
+         * @param {string} baseUrl - Instance URL
+         * @param {Object} options - Additional options (name, hostName, etc.)
+         * @returns {boolean} Success status
+         */
+        function addInstance(baseUrl, options = {}) {
             const url = normalizeBaseUrl(baseUrl);
             if (!url) return false;
+
             const instances = getInstances();
-            if (!instances.includes(url)) {
+            const isNew = !instances.includes(url);
+            
+            if (isNew) {
                 instances.push(url);
                 saveInstances(instances);
+                
+                // Initialize metadata for new instance
+                updateInstanceMeta(url, {
+                    name: options.name,
+                    hostName: options.hostName,
+                    lastStatus: options.lastStatus || 'unknown',
+                    lastPingMs: options.lastPingMs,
+                    addedAt: new Date().toISOString()
+                });
             }
+
             // Set as active by default when added
             localStorage.setItem(STORAGE_KEYS.ACTIVE, url);
-            return true;
+            return isNew;
         }
 
+        /**
+         * Remove instance and its metadata
+         * @param {string} url - Instance URL to remove
+         * @returns {boolean} Success status
+         */
+        function removeInstance(url) {
+            const instances = getInstances();
+            const filteredInstances = instances.filter(u => u !== url);
+            
+            if (filteredInstances.length !== instances.length) {
+                saveInstances(filteredInstances);
+                
+                // Remove metadata
+                const metadata = getInstanceMetadata();
+                delete metadata[url];
+                saveInstanceMetadata(metadata);
+                
+                // Clear active if removing active instance
+                if (getActiveInstance() === url) {
+                    const nextActive = filteredInstances.length > 0 ? filteredInstances[0] : null;
+                    if (nextActive) {
+                        setActiveInstance(nextActive);
+                    } else {
+                        localStorage.removeItem(STORAGE_KEYS.ACTIVE);
+                    }
+                }
+                
+                return true;
+            }
+            return false;
+        }
+
+        /**
+         * Get active instance URL
+         * @returns {string|null} Active instance URL
+         */
         function getActiveInstance() {
             const active = localStorage.getItem(STORAGE_KEYS.ACTIVE);
-            if (active) return active;
+            if (active && getInstances().includes(active)) {
+                return active;
+            }
+            
+            // Fallback to first available instance
             const instances = getInstances();
-            return instances.length ? instances[0] : null;
+            const fallback = instances.length > 0 ? instances[0] : null;
+            if (fallback) {
+                setActiveInstance(fallback);
+            }
+            return fallback;
         }
 
+        /**
+         * Set active instance
+         * @param {string} url - Instance URL to set as active
+         */
         function setActiveInstance(url) {
-            localStorage.setItem(STORAGE_KEYS.ACTIVE, url);
+            if (getInstances().includes(url)) {
+                localStorage.setItem(STORAGE_KEYS.ACTIVE, url);
+            } else {
+                console.warn('Attempted to set non-existent instance as active:', url);
+            }
+        }
+
+        /**
+         * Get active instance with metadata
+         * @returns {Object|null} Enhanced active instance object
+         */
+        function getActiveInstanceWithMeta() {
+            const activeUrl = getActiveInstance();
+            return activeUrl ? getInstanceMeta(activeUrl) : null;
         }
 
         // Make core functions globally available for smart-connection.js and debugging
         window.getInstances = getInstances;
         window.addInstance = addInstance;
+        window.removeInstance = removeInstance;
         window.getActiveInstance = getActiveInstance;
         window.setActiveInstance = setActiveInstance;
         window.saveInstances = saveInstances;
+        
+        // Enhanced metadata functions
+        window.getEnhancedInstances = getEnhancedInstances;
+        window.getInstanceMeta = getInstanceMeta;
+        window.updateInstanceMeta = updateInstanceMeta;
+        window.getActiveInstanceWithMeta = getActiveInstanceWithMeta;
+
+        // Enhanced UI Management Functions
+        // ===============================
+
+        /**
+         * Update overview badges with current system status
+         */
+        function updateOverviewBadges() {
+            const environment = window.smartManager?.environment || 'unknown';
+            const proxy = window.smartManager?.proxyAvailable || false;
+            const instances = getEnhancedInstances();
+            const reachableCount = instances.filter(i => i.lastStatus === 'reachable').length;
+            
+            // Environment badge
+            const envBadge = els.environmentBadge();
+            if (envBadge) {
+                envBadge.textContent = environment === 'web' ? 'Excel Web' : 'Excel Desktop';
+                envBadge.className = `badge ${environment === 'web' ? 'warning' : 'success'}`;
+            }
+
+            // Connectivity badge  
+            const connBadge = els.connectivityBadge();
+            if (connBadge) {
+                const total = instances.length;
+                connBadge.textContent = total > 0 ? `${reachableCount} of ${total} reachable` : 'No instances';
+                connBadge.className = `badge ${reachableCount === total && total > 0 ? 'success' : (reachableCount > 0 ? 'warning' : 'error')}`;
+            }
+
+            // Proxy badge
+            const proxyBadge = els.proxyBadge();
+            if (proxyBadge) {
+                proxyBadge.textContent = proxy ? 'Proxy: On' : 'Proxy: Off';
+                proxyBadge.className = `badge ${proxy ? 'success' : 'error'}`;
+            }
+
+            // Active instance display
+            const activeDisplay = els.activeInstanceDisplay();
+            if (activeDisplay) {
+                const active = getActiveInstanceWithMeta();
+                if (active) {
+                    const displayName = active.name || active.hostName || new URL(active.url).hostname;
+                    activeDisplay.textContent = `Active: ${displayName}`;
+                    activeDisplay.className = 'small';
+                } else {
+                    activeDisplay.textContent = 'No active instance';
+                    activeDisplay.className = 'small muted';
+                }
+            }
+
+            // Proxy guidance (show for Excel Web when proxy is off and private IPs exist)
+            const guidance = els.proxyGuidance();
+            if (guidance) {
+                const shouldShow = environment === 'web' && !proxy && 
+                    instances.some(i => i.url.includes('192.168.') || i.url.includes('10.') || i.url.includes('172.'));
+                guidance.style.display = shouldShow ? 'block' : 'none';
+            }
+        }
+
+        /**
+         * Render enhanced instance list with metadata and actions
+         */
+        function renderInstanceList() {
+            const container = els.instancesContainer();
+            const emptyState = els.emptyInstances();
+            if (!container || !emptyState) return;
+
+            const instances = getEnhancedInstances();
+            const activeUrl = getActiveInstance();
+
+            // Clear container
+            container.innerHTML = '';
+
+            if (instances.length === 0) {
+                container.appendChild(emptyState);
+                return;
+            }
+
+            // Sort instances: Active first, then reachable (by ping time), then unreachable
+            const sortedInstances = [...instances].sort((a, b) => {
+                if (a.url === activeUrl) return -1;
+                if (b.url === activeUrl) return 1;
+                if (a.lastStatus === 'reachable' && b.lastStatus !== 'reachable') return -1;
+                if (b.lastStatus === 'reachable' && a.lastStatus !== 'reachable') return 1;
+                if (a.lastStatus === 'reachable' && b.lastStatus === 'reachable') {
+                    return (a.lastPingMs || 999999) - (b.lastPingMs || 999999);
+                }
+                return a.url.localeCompare(b.url);
+            });
+
+            // Render each instance
+            sortedInstances.forEach(instance => {
+                const row = document.createElement('div');
+                row.className = `instance-row ${instance.url === activeUrl ? 'active' : ''}`;
+
+                // Status dot
+                const dot = document.createElement('div');
+                dot.className = `status-dot ${instance.lastStatus || 'unknown'}`;
+
+                // Instance info
+                const info = document.createElement('div');
+                info.className = 'instance-info';
+
+                const name = document.createElement('div');
+                name.className = 'instance-name';
+                const displayName = instance.name || instance.hostName || new URL(instance.url).hostname;
+                name.textContent = displayName;
+                
+                // Add editable name functionality
+                name.addEventListener('dblclick', () => editInstanceName(instance.url, name));
+
+                const url = document.createElement('div');
+                url.className = 'instance-url';
+                url.textContent = instance.url;
+
+                info.appendChild(name);
+                info.appendChild(url);
+
+                // Action buttons
+                const actions = document.createElement('div');
+                actions.className = 'instance-actions';
+
+                // Active badge for active instance
+                if (instance.url === activeUrl) {
+                    const activeBadge = document.createElement('span');
+                    activeBadge.className = 'badge active';
+                    activeBadge.textContent = 'Active';
+                    activeBadge.style.marginRight = '8px';
+                    actions.appendChild(activeBadge);
+                }
+
+                // Ping time badge
+                if (instance.lastPingMs) {
+                    const pingBadge = document.createElement('span');
+                    pingBadge.className = 'small muted';
+                    pingBadge.textContent = `${instance.lastPingMs}ms`;
+                    pingBadge.style.marginRight = '8px';
+                    actions.appendChild(pingBadge);
+                }
+
+                // Action buttons
+                if (instance.url !== activeUrl) {
+                    const setActiveBtn = document.createElement('button');
+                    setActiveBtn.textContent = 'Set Active';
+                    setActiveBtn.className = 'primary';
+                    setActiveBtn.onclick = () => setInstanceActive(instance.url);
+                    actions.appendChild(setActiveBtn);
+                }
+
+                const pingBtn = document.createElement('button');
+                pingBtn.textContent = 'Ping';
+                pingBtn.onclick = () => pingInstance(instance.url);
+                actions.appendChild(pingBtn);
+
+                const statsBtn = document.createElement('button');
+                statsBtn.textContent = 'Statistics';
+                statsBtn.onclick = () => getInstanceStatistics(instance.url);
+                actions.appendChild(statsBtn);
+
+                const removeBtn = document.createElement('button');
+                removeBtn.textContent = 'Remove';
+                removeBtn.onclick = () => removeInstanceWithConfirm(instance.url);
+                actions.appendChild(removeBtn);
+
+                // Assemble row
+                row.appendChild(dot);
+                row.appendChild(info);
+                row.appendChild(actions);
+
+                container.appendChild(row);
+            });
+        }
+
+        /**
+         * Edit instance name inline
+         * @param {string} url - Instance URL
+         * @param {Element} nameElement - Name element to edit
+         */
+        function editInstanceName(url, nameElement) {
+            const currentName = getInstanceMeta(url).name || '';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = currentName;
+            input.style.width = '100%';
+            input.style.fontSize = '14px';
+            input.style.fontWeight = '600';
+
+            const save = () => {
+                const newName = input.value.trim();
+                updateInstanceMeta(url, { name: newName });
+                renderInstanceList();
+                updateOverviewBadges();
+                logMessage('info', 'Instance name updated', { url, name: newName || '(cleared)' });
+            };
+
+            const cancel = () => {
+                renderInstanceList();
+            };
+
+            input.addEventListener('blur', save);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') save();
+                if (e.key === 'Escape') cancel();
+            });
+
+            nameElement.replaceWith(input);
+            input.focus();
+            input.select();
+        }
+
+        // Console Logging System
+        // =====================
+
+        /**
+         * Log structured message to console
+         * @param {string} level - Log level: 'info', 'warn', 'error'
+         * @param {string} message - Log message
+         * @param {Object} details - Optional details object
+         */
+        function logMessage(level, message, details = null) {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = `[${level.toUpperCase()}]`;
+            const fullMessage = `${timestamp} ${prefix} ${message}`;
+            
+            // Log to browser console
+            const consoleMethod = level === 'error' ? 'error' : (level === 'warn' ? 'warn' : 'log');
+            if (details) {
+                console[consoleMethod](`${fullMessage}`, details);
+            } else {
+                console[consoleMethod](fullMessage);
+            }
+            
+            // Log to UI console
+            const statusElement = els.status();
+            if (statusElement) {
+                const logLine = details ? 
+                    `${fullMessage} ${JSON.stringify(details).slice(0, 200)}` : 
+                    fullMessage;
+                statusElement.textContent += logLine + '\n';
+                statusElement.scrollTop = statusElement.scrollHeight;
+            }
+        }
+
+        // Instance Management Functions
+        // ============================
+
+        /**
+         * Ping specific instance and update its status
+         * @param {string} url - Instance URL to ping
+         */
+        async function pingInstance(url) {
+            updateInstanceMeta(url, { lastStatus: 'checking' });
+            renderInstanceList();
+            
+            const startTime = performance.now();
+            logMessage('info', 'Ping started', { url });
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                
+                const response = await fetch(`${url}/foglamp/ping`, {
+                    signal: controller.signal,
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                clearTimeout(timeoutId);
+                const endTime = performance.now();
+                const pingMs = Math.round(endTime - startTime);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    updateInstanceMeta(url, {
+                        lastStatus: 'reachable',
+                        lastPingMs: pingMs,
+                        lastCheckedAt: new Date().toISOString(),
+                        hostName: data.hostName || getInstanceMeta(url).hostName
+                    });
+                    logMessage('info', `Ping OK: ${url} (${pingMs}ms)`, data);
+                } else {
+                    updateInstanceMeta(url, {
+                        lastStatus: 'unreachable',
+                        lastCheckedAt: new Date().toISOString(),
+                        lastError: `HTTP ${response.status}`
+                    });
+                    logMessage('warn', `Ping failed: ${url} (HTTP ${response.status})`);
+                }
+            } catch (error) {
+                const endTime = performance.now();
+                const pingMs = Math.round(endTime - startTime);
+                updateInstanceMeta(url, {
+                    lastStatus: 'unreachable',
+                    lastCheckedAt: new Date().toISOString(),
+                    lastError: error.message
+                });
+                logMessage('warn', `Ping failed: ${url} (${error.message})`);
+            }
+            
+            renderInstanceList();
+            updateOverviewBadges();
+        }
+
+        /**
+         * Set instance as active
+         * @param {string} url - Instance URL to set as active
+         */
+        async function setInstanceActive(url) {
+            setActiveInstance(url);
+            logMessage('info', 'Active instance changed', { url });
+            renderInstanceList();
+            updateOverviewBadges();
+            
+            // Load assets for the new active instance
+            await loadAssetsForActiveInstance();
+        }
+
+        /**
+         * Remove instance with confirmation
+         * @param {string} url - Instance URL to remove
+         */
+        function removeInstanceWithConfirm(url) {
+            const instance = getInstanceMeta(url);
+            const displayName = instance.name || instance.hostName || new URL(url).hostname;
+            
+            if (confirm(`Remove instance "${displayName}"?\n\nURL: ${url}`)) {
+                const removed = removeInstance(url);
+                if (removed) {
+                    logMessage('info', 'Instance removed', { url, name: displayName });
+                    renderInstanceList();
+                    updateOverviewBadges();
+                }
+            }
+        }
+
+        /**
+         * Get statistics for specific instance
+         * @param {string} url - Instance URL
+         */
+        async function getInstanceStatistics(url) {
+            logMessage('info', 'Fetching statistics', { url });
+            
+            try {
+                // Set as active temporarily to use smart API functions
+                const originalActive = getActiveInstance();
+                setActiveInstance(url);
+                
+                const stats = await foglampStatisticsSmart();
+                updateStatus('Statistics retrieved:', stats);
+                
+                // Restore original active
+                if (originalActive && originalActive !== url) {
+                    setActiveInstance(originalActive);
+                    renderInstanceList();
+                }
+                
+                logMessage('info', 'Statistics retrieved successfully', { url });
+            } catch (error) {
+                logMessage('error', 'Failed to get statistics', { url, error: error.message });
+                updateStatus('Statistics failed:', { error: error.message });
+            }
+        }
+
+        // Adaptive Add Flow Implementation
+        // ===============================
+
+        /**
+         * Show add feedback message
+         * @param {string} message - Feedback message
+         * @param {string} type - Message type: 'success', 'warning', 'error'
+         */
+        function showAddFeedback(message, type = 'success') {
+            const feedback = els.addFeedback();
+            if (feedback) {
+                feedback.textContent = message;
+                feedback.className = `feedback-area ${type}`;
+                feedback.style.display = 'block';
+            }
+        }
+
+        /**
+         * Hide add feedback
+         */
+        function hideAddFeedback() {
+            const feedback = els.addFeedback();
+            if (feedback) {
+                feedback.style.display = 'none';
+            }
+        }
+
+        /**
+         * Show/hide add action buttons
+         * @param {boolean} show - Whether to show buttons
+         * @param {string} url - URL being added
+         * @param {Object} pingResult - Ping result data
+         */
+        function toggleAddActions(show, url = '', pingResult = null) {
+            const actions = els.addActions();
+            const confirmBtn = els.addConfirm();
+            const skipBtn = els.addSkip();
+            
+            if (!actions || !confirmBtn || !skipBtn) return;
+            
+            actions.style.display = show ? 'flex' : 'none';
+            
+            if (show) {
+                // Configure confirm button
+                confirmBtn.onclick = async () => {
+                    await confirmAddInstance(url, pingResult);
+                    hideAddFeedback();
+                    toggleAddActions(false);
+                };
+                
+                // Configure skip button
+                skipBtn.onclick = () => {
+                    logMessage('info', 'Add skipped', { url });
+                    hideAddFeedback();
+                    toggleAddActions(false);
+                };
+            }
+        }
+
+        /**
+         * Confirm and add instance with metadata
+         * @param {string} url - Instance URL
+         * @param {Object} pingResult - Ping result data
+         */
+        async function confirmAddInstance(url, pingResult) {
+            const options = {
+                lastStatus: pingResult?.ok ? 'reachable' : 'unreachable',
+                lastPingMs: pingResult?.pingMs,
+                hostName: pingResult?.data?.hostName,
+                lastCheckedAt: new Date().toISOString()
+            };
+            
+            const added = addInstance(url, options);
+            
+            if (added) {
+                logMessage('info', 'Instance added successfully', { 
+                    url, 
+                    hostName: options.hostName,
+                    status: options.lastStatus 
+                });
+                
+                // Clear input
+                const input = els.baseUrl();
+                if (input) input.value = '';
+                
+                // Update UI
+                renderInstanceList();
+                updateOverviewBadges();
+                
+                // Load assets for new active instance
+                await loadAssetsForActiveInstance();
+            } else {
+                logMessage('warn', 'Instance already exists', { url });
+            }
+        }
+
+        /**
+         * Ping URL with timeout for validation
+         * @param {string} url - URL to ping
+         * @param {number} timeoutMs - Timeout in milliseconds
+         * @returns {Promise} Ping result
+         */
+        async function pingUrlForValidation(url, timeoutMs = 3000) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+            
+            const startTime = performance.now();
+            
+            try {
+                const response = await fetch(`${url}/foglamp/ping`, {
+                    signal: controller.signal,
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const endTime = performance.now();
+                const pingMs = Math.round(endTime - startTime);
+                
+                clearTimeout(timeoutId);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    return { ok: true, pingMs, data, status: response.status };
+                } else {
+                    return { ok: false, pingMs, status: response.status };
+                }
+            } catch (error) {
+                const endTime = performance.now();
+                const pingMs = Math.round(endTime - startTime);
+                clearTimeout(timeoutId);
+                return { ok: false, pingMs, error: error.message };
+            }
+        }
+
+        // Asset Management Functions
+        // =========================
+
+        /**
+         * Load assets for the active instance
+         */
+        async function loadAssetsForActiveInstance() {
+            const assetSelect = els.assetSelect();
+            if (!assetSelect) return;
+
+            const activeInstance = getActiveInstance();
+            if (!activeInstance) {
+                assetSelect.innerHTML = '<option value="">No active instance</option>';
+                return;
+            }
+
+            assetSelect.innerHTML = '<option value="">Loading assets...</option>';
+            
+            try {
+                const assets = await foglampAssetsSmart();
+                
+                // Clear and populate dropdown
+                assetSelect.innerHTML = '<option value="">Select asset...</option>';
+                
+                if (Array.isArray(assets) && assets.length > 0) {
+                    assets.forEach(asset => {
+                        const option = document.createElement('option');
+                        option.value = asset;
+                        option.textContent = asset;
+                        assetSelect.appendChild(option);
+                    });
+                } else {
+                    assetSelect.innerHTML = '<option value="">No assets found</option>';
+                }
+                
+                logMessage('info', `Assets loaded: ${assets?.length || 0} assets`);
+            } catch (error) {
+                assetSelect.innerHTML = '<option value="">Failed to load assets</option>';
+                logMessage('warn', 'Failed to load assets', { error: error.message });
+            }
+        }
+
+        /**
+         * Sync asset dropdown with text input
+         */
+        function syncAssetInputs() {
+            const assetSelect = els.assetSelect();
+            const assetInput = els.asset();
+            
+            if (assetSelect && assetInput) {
+                assetSelect.addEventListener('change', () => {
+                    if (assetSelect.value) {
+                        assetInput.value = assetSelect.value;
+                    }
+                });
+                
+                assetInput.addEventListener('input', () => {
+                    // Clear selection if user types manually
+                    if (assetSelect.value !== assetInput.value) {
+                        assetSelect.value = '';
+                    }
+                });
+            }
+        }
+
+        // Legacy Helper Functions (Updated for new UI)
+        // ===========================================
+
+        /**
+         * Update status in console (legacy compatibility)
+         * @param {string} message - Status message
+         * @param {Object} data - Optional data object
+         */
+        function updateStatus(message, data = null) {
+            const statusText = data ? `${message} ${JSON.stringify(data, null, 2)}` : message;
+            const statusElement = els.status();
+            if (statusElement) {
+                statusElement.textContent = statusText;
+            }
+        }
+
+        /**
+         * Legacy populate list function (updated for new UI)
+         */
+        async function populateList() {
+            renderInstanceList();
+            updateOverviewBadges();
+        }
+
+        // Event Handlers
+        // ==============
+
+        /**
+         * Handle adaptive Add button click
+         */
+        async function handleAddInstance() {
+            const baseUrlInput = els.baseUrl();
+            if (!baseUrlInput) return;
+
+            const baseUrl = baseUrlInput.value.trim();
+            const url = normalizeBaseUrl(baseUrl);
+
+            if (!url) {
+                showAddFeedback('Enter a valid URL (e.g., http://127.0.0.1:8081)', 'error');
+                return;
+            }
+
+            // Check for duplicates
+            const instances = getInstances();
+            if (instances.includes(url)) {
+                showAddFeedback('Instance already exists', 'warning');
+                return;
+            }
+
+            // Start validation
+            showAddFeedback('Checking...', 'warning');
+            logMessage('info', 'Add: checking URL', { url });
+
+            try {
+                const result = await pingUrlForValidation(url);
+                
+                if (result.ok) {
+                    showAddFeedback(`Ping success (${result.pingMs}ms)`, 'success');
+                    logMessage('info', `Ping OK: ${url} (${result.pingMs}ms)`, result.data);
+                } else {
+                    const errorMsg = result.error || `HTTP ${result.status}`;
+                    showAddFeedback('Ping failed', 'warning');
+                    logMessage('warn', `Ping FAILED: ${url} (${errorMsg})`);
+                }
+                
+                // Show Add/Skip actions
+                toggleAddActions(true, url, result);
+                
+            } catch (error) {
+                showAddFeedback('Ping failed', 'warning');
+                logMessage('warn', 'Ping error', { url, error: error.message });
+                toggleAddActions(true, url, null);
+            }
+        }
+
+        /**
+         * Handle refresh status button click
+         */
+        async function handleRefreshStatus() {
+            const instances = getInstances();
+            
+            if (instances.length === 0) {
+                logMessage('info', 'Refresh: no instances to check');
+                return;
+            }
+
+            const environment = window.smartManager?.environment || 'unknown';
+            const proxy = window.smartManager?.proxyAvailable || false;
+            
+            logMessage('info', 'Refresh: starting', { 
+                environment, 
+                proxy, 
+                count: instances.length 
+            });
+
+            // Set all to checking
+            instances.forEach(url => {
+                updateInstanceMeta(url, { lastStatus: 'checking' });
+            });
+            renderInstanceList();
+
+            // Ping all in parallel
+            const results = await Promise.all(instances.map(async (url) => {
+                try {
+                    await pingInstance(url);
+                    const meta = getInstanceMeta(url);
+                    return meta.lastStatus === 'reachable';
+                } catch (error) {
+                    return false;
+                }
+            }));
+
+            const reachableCount = results.filter(Boolean).length;
+            
+            logMessage('info', 'Refresh: complete', { 
+                reachable: reachableCount, 
+                total: instances.length,
+                proxy 
+            });
+
+            updateOverviewBadges();
+        }
+
+        /**
+         * Setup all event listeners for the enhanced UI
+         */
+        function setupEventListeners() {
+            // Add Instance (Adaptive flow)
+            const registerBtn = els.register();
+            if (registerBtn) {
+                registerBtn.addEventListener("click", handleAddInstance);
+            }
+
+            // Refresh Status
+            const refreshBtn = els.refreshConnections();
+            if (refreshBtn) {
+                refreshBtn.addEventListener("click", handleRefreshStatus);
+            }
+
+            // Check Summary
+            const summaryBtn = els.checkSummary();
+            if (summaryBtn) {
+                summaryBtn.addEventListener("click", async () => {
+                    const activeInstance = getActiveInstanceWithMeta();
+                    if (!activeInstance) {
+                        updateStatus("No active instance");
+                        return;
+                    }
+                    
+                    logMessage('info', 'Getting instance summary', { url: activeInstance.url });
+                    updateStatus("Checking...");
+                    
+                    try {
+                        const [ping, stats, assets] = await Promise.all([
+                            foglampPingSmart().catch(e => ({ error: String(e) })),
+                            foglampStatisticsSmart().catch(e => ({ error: String(e) })),
+                            foglampAssetsSmart().catch(e => ({ error: String(e) }))
+                        ]);
+                        
+                        const summary = { ping, statistics: stats, assets };
+                        updateSummary(els.summary(), summary);
+                        logMessage('info', 'Summary retrieved successfully');
+                        
+                    } catch (error) {
+                        updateSummary(els.summary(), { error: error.message });
+                        logMessage('error', 'Failed to get summary', { error: error.message });
+                    }
+                });
+            }
+
+            // Export Status  
+            const exportStatusBtn = els.writeStatus();
+            if (exportStatusBtn) {
+                exportStatusBtn.addEventListener("click", async () => {
+                    const activeInstance = getActiveInstanceWithMeta();
+                    if (!activeInstance) {
+                        updateStatus("No active instance");
+                        logMessage('warn', 'Export Status: no active instance');
+                        return;
+                    }
+
+                    const instanceName = activeInstance.name || activeInstance.hostName || new URL(activeInstance.url).hostname;
+                    const sheetName = `${instanceName} - FogLAMP - Status`;
+                    
+                    logMessage('info', 'Exporting status to sheet', { instance: instanceName, sheet: sheetName });
+                    updateStatus("Exporting FogLAMP status...");
+                    
+                    try {
+                        const [ping, stats, assets] = await Promise.all([
+                            foglampPingSmart().catch(e => ({ error: String(e) })),
+                            foglampStatisticsSmart().catch(e => ({ error: String(e) })),
+                            foglampAssetsSmart().catch(e => ({ error: String(e) }))
+                        ]);
+
+                        await Excel.run(async (context) => {
+                            const sheet = await ensureWorksheet(context, sheetName);
+                            const start = sheet.getRange("A1");
+
+                            // Enhanced formatting for status export
+                            writeTable(start, [
+                                ["Instance", instanceName],
+                                ["URL", activeInstance.url],
+                                ["Timestamp", new Date().toISOString()],
+                                ["", ""],
+                                ["PING", JSON.stringify(ping, null, 2)],
+                                ["", ""],
+                                ["STATISTICS", JSON.stringify(stats, null, 2)],
+                                ["", ""],
+                                ["ASSETS", JSON.stringify(assets, null, 2)]
+                            ], ["Type", "Data"]);
+
+                            start.format.autofitColumns();
+                            
+                            // Bold headers
+                            sheet.getRange("A1:A3").format.font.bold = true;
+                            sheet.getRange("A5").format.font.bold = true;
+                            sheet.getRange("A7").format.font.bold = true;
+                            sheet.getRange("A9").format.font.bold = true;
+                        });
+
+                        updateStatus(`Status exported to sheet '${sheetName}'`);
+                        logMessage('info', 'Status exported successfully', { sheet: sheetName });
+                        
+                    } catch (error) {
+                        updateStatus("Failed to export status", { error: error.message });
+                        logMessage('error', 'Status export failed', { error: error.message });
+                    }
+                });
+            }
+
+            // Export Asset Readings
+            const exportReadingsBtn = els.getReadings();
+            if (exportReadingsBtn) {
+                exportReadingsBtn.addEventListener("click", async () => {
+                    const activeInstance = getActiveInstanceWithMeta();
+                    if (!activeInstance) {
+                        updateStatus("No active instance");
+                        logMessage('warn', 'Export Readings: no active instance');
+                        return;
+                    }
+
+                    const assetSelect = els.assetSelect();
+                    const assetInput = els.asset();
+                    const asset = (assetSelect?.value || assetInput?.value || "").trim();
+                    
+                    if (!asset) {
+                        updateStatus("Select or enter an asset name");
+                        logMessage('warn', 'Export Readings: no asset specified');
+                        return;
+                    }
+
+                    const datapoint = (els.datapoint()?.value || "").trim();
+                    const limit = Math.max(1, Math.min(10000, parseInt(els.limit()?.value || "100", 10)));
+                    
+                    const instanceName = activeInstance.name || activeInstance.hostName || new URL(activeInstance.url).hostname;
+                    const sheetName = `${instanceName} - asset - ${asset}`;
+                    
+                    logMessage('info', 'Exporting asset readings', { 
+                        instance: instanceName, 
+                        asset, 
+                        datapoint: datapoint || 'all',
+                        limit 
+                    });
+                    updateStatus("Fetching asset readings...");
+                    
+                    try {
+                        const data = await foglampAssetReadingsSmart(asset, datapoint, limit);
+                        const { header, rows } = flattenReadings(data);
+                        
+                        await Excel.run(async (context) => {
+                            const sheet = await ensureWorksheet(context, sheetName);
+                            const start = sheet.getRange("A1");
+                            
+                            writeTable(start, rows, header);
+                            
+                            // Format headers
+                            if (header.length > 0) {
+                                const headerRange = sheet.getRange(`A1:${String.fromCharCode(64 + header.length)}1`);
+                                headerRange.format.font.bold = true;
+                                headerRange.format.fill.color = "#E3F2FD";
+                            }
+                            
+                            start.format.autofitColumns();
+                        });
+
+                        updateStatus(`Asset readings exported to sheet '${sheetName}'`);
+                        logMessage('info', 'Asset readings exported successfully', { 
+                            sheet: sheetName, 
+                            rows: rows.length 
+                        });
+                        
+                    } catch (error) {
+                        updateStatus("Failed to fetch readings", { error: error.message });
+                        logMessage('error', 'Asset readings export failed', { 
+                            asset, 
+                            error: error.message 
+                        });
+                    }
+                });
+            }
+
+            // Asset input synchronization
+            syncAssetInputs();
+        }
+
+        /**
+         * Initialize UI components and load initial data
+         */
+        async function initializeUI() {
+            // Initial render
+            renderInstanceList();
+            updateOverviewBadges();
+            
+            // Load assets for active instance
+            await loadAssetsForActiveInstance();
+            
+            // Update connection status display
+            updateConnectionStatus();
+        }
 
         function normalizeBaseUrl(input) {
             if (!input) return "";
@@ -532,30 +1740,28 @@
             populateList();
         }
 
-        // Event wiring
+        // Enhanced Event Wiring & Initialization
         document.addEventListener("DOMContentLoaded", async () => {
-            // Initialize smart connection manager
-            await initializeSmartConnections();
-            
-            // Wire buttons
-            els.register().addEventListener("click", async () => {
-                const url = normalizeBaseUrl(els.baseUrl().value);
-                if (!url) {
-                    updateStatus("Enter a FogLAMP Base URL, e.g. http://127.0.0.1:8081");
-                    return;
-                }
-                addInstance(url);
-                populateList();
-                updateStatus("Registered instance:", { url });
-                try {
-                    const data = await foglampPingSmart();
-                    updateStatus("Ping OK:", data);
-                } catch (err) {
-                    updateStatus("Ping failed.", { error: String(err) });
-                }
-            });
+            try {
+                logMessage('info', 'FogLAMP DataLink starting...');
+                
+                // Initialize smart connection manager
+                await initializeSmartConnections();
+                
+                // Setup event listeners for new UI
+                setupEventListeners();
+                
+                // Initialize UI components
+                await initializeUI();
+                
+                logMessage('info', 'FogLAMP DataLink initialized successfully');
+                
+            } catch (error) {
+                logMessage('error', 'Failed to initialize FogLAMP DataLink', { error: error.message });
+                console.error('Initialization error:', error);
+            }
 
-            els.ping().addEventListener("click", async () => {
+            // Console drag-to-resize
                 const url = getActiveInstance();
                 if (!url) return updateStatus("No active instance. Register or select one first.");
                 try {

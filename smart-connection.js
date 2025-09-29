@@ -22,35 +22,51 @@ class SmartFogLAMPManager {
 
     // Load instances from user registration system
     loadUserRegisteredInstances() {
-        // Get instances from the existing registration system (taskpane.html)
-        const registeredUrls = typeof getInstances === 'function' ? getInstances() : [];
-        
-        this.targetInstances = registeredUrls.map((url, index) => {
-            const isLocalhost = url.includes('127.0.0.1') || url.includes('localhost');
-            return {
-                name: isLocalhost ? 'Local' : `Instance ${index + 1}`,
-                url: url,
-                priority: isLocalhost ? 1 : index + 2,
-                alwaysAvailable: isLocalhost
-            };
-        });
-
-        // Generate corresponding proxy instances
-        this.proxyInstances = this.targetInstances
-            .filter(instance => !instance.url.includes('localhost') && !instance.url.includes('127.0.0.1'))
-            .map((instance, index) => {
-                // Convert direct URL to proxy URL
-                const urlPath = this.generateProxyPath(instance.url);
+        try {
+            // Get instances from the existing registration system (taskpane.html)
+            const registeredUrls = typeof getInstances === 'function' ? getInstances() : [];
+            
+            // Clear existing instances to prevent stale data
+            this.targetInstances = [];
+            this.proxyInstances = [];
+            
+            if (registeredUrls.length === 0) {
+                console.log('⚠️  No registered instances found');
+                return;
+            }
+            
+            this.targetInstances = registeredUrls.map((url, index) => {
+                const isLocalhost = url.includes('127.0.0.1') || url.includes('localhost');
                 return {
-                    name: `${instance.name} (Proxy)`,
-                    url: `${this.PROXY_BASE_URL}/${urlPath}`,
-                    priority: instance.priority,
-                    originalUrl: instance.url
+                    name: isLocalhost ? 'Local' : `Instance ${index + 1}`,
+                    url: url,
+                    priority: isLocalhost ? 1 : index + 2,
+                    alwaysAvailable: isLocalhost
                 };
             });
 
-        console.log(`🔄 Loaded ${this.targetInstances.length} registered instances`);
-        console.log(`📡 Generated ${this.proxyInstances.length} proxy instances`);
+            // Generate corresponding proxy instances for non-localhost instances
+            this.proxyInstances = this.targetInstances
+                .filter(instance => !instance.url.includes('localhost') && !instance.url.includes('127.0.0.1'))
+                .map((instance, index) => {
+                    // Convert direct URL to proxy URL
+                    const urlPath = this.generateProxyPath(instance.url);
+                    return {
+                        name: `${instance.name} (Proxy)`,
+                        url: `${this.PROXY_BASE_URL}/${urlPath}`,
+                        priority: instance.priority,
+                        originalUrl: instance.url
+                    };
+                });
+
+            console.log(`🔄 Loaded ${this.targetInstances.length} registered instances`);
+            console.log(`📡 Generated ${this.proxyInstances.length} proxy instances`);
+            
+        } catch (error) {
+            console.error('❌ Error loading registered instances:', error);
+            this.targetInstances = [];
+            this.proxyInstances = [];
+        }
     }
 
     // Generate a proxy path from a FogLAMP URL
@@ -268,69 +284,102 @@ class SmartFogLAMPManager {
         return { ...instance, accessible: false, method: 'proxy' };
     }
 
-    // Smart discovery based on environment
+    // Smart discovery based on environment with enhanced error handling
     async discoverInstances() {
         console.log(`🔍 Discovering instances for ${this.environment} environment...`);
         
-        // First, load user-registered instances
-        this.loadUserRegisteredInstances();
-        
-        this.availableInstances.clear();
-        const results = [];
-
-        if (this.environment === 'desktop') {
-            // Desktop: Try direct connections to all instances
-            console.log('📱 Desktop environment: Testing direct connections...');
+        try {
+            // First, load user-registered instances
+            this.loadUserRegisteredInstances();
             
-            const directTests = await Promise.allSettled(
-                this.targetInstances.map(instance => this.testDirectConnection(instance))
-            );
+            // Clear available instances and reset proxy state
+            this.availableInstances.clear();
+            this.proxyAvailable = false; // Reset proxy state
+            const results = [];
 
-            directTests.forEach((result, index) => {
-                if (result.status === 'fulfilled' && result.value.accessible) {
-                    this.availableInstances.set(result.value.name, result.value);
-                    results.push(result.value);
-                }
-            });
+            // Handle case where no instances are registered
+            if (this.targetInstances.length === 0) {
+                console.log('⚠️  No instances registered - discovery skipped');
+                return results;
+            }
 
-        } else {
-            // Web environment: Try proxy first, then localhost fallback
-            console.log('🌐 Web environment: Testing connections...');
-            
-            await this.checkProxyAvailability();
-            
-            if (this.proxyAvailable) {
-                console.log('📡 Trying proxy connections...');
+            if (this.environment === 'desktop') {
+                // Desktop: Try direct connections to all instances
+                console.log('📱 Desktop environment: Testing direct connections...');
                 
-                const proxyTests = await Promise.allSettled(
-                    this.proxyInstances.map(instance => this.testProxyConnection(instance))
+                const directTests = await Promise.allSettled(
+                    this.targetInstances.map(instance => this.testDirectConnection(instance))
                 );
 
-                proxyTests.forEach((result, index) => {
+                directTests.forEach((result, index) => {
                     if (result.status === 'fulfilled' && result.value.accessible) {
                         this.availableInstances.set(result.value.name, result.value);
                         results.push(result.value);
+                    } else if (result.status === 'rejected') {
+                        console.log(`❌ Direct test failed for ${this.targetInstances[index].name}:`, result.reason);
                     }
                 });
+
+            } else {
+                // Web environment: Try proxy first, then localhost fallback
+                console.log('🌐 Web environment: Testing connections...');
+                
+                // Check proxy availability (this resets proxyAvailable flag)
+                await this.checkProxyAvailability();
+                
+                if (this.proxyAvailable && this.proxyInstances.length > 0) {
+                    console.log(`📡 Proxy available - testing ${this.proxyInstances.length} proxy connections...`);
+                    
+                    const proxyTests = await Promise.allSettled(
+                        this.proxyInstances.map(instance => this.testProxyConnection(instance))
+                    );
+
+                    proxyTests.forEach((result, index) => {
+                        if (result.status === 'fulfilled' && result.value.accessible) {
+                            this.availableInstances.set(result.value.name, result.value);
+                            results.push(result.value);
+                        } else if (result.status === 'rejected') {
+                            console.log(`❌ Proxy test failed for ${this.proxyInstances[index].name}:`, result.reason);
+                        }
+                    });
+                } else {
+                    console.log('📡 No proxy available or no proxy instances to test');
+                }
+                
+                // Always test localhost directly (should work in web)
+                console.log('🏠 Testing direct localhost connection...');
+                const localhostInstances = this.targetInstances.filter(instance => 
+                    instance.url.includes('127.0.0.1') || instance.url.includes('localhost')
+                );
+                
+                if (localhostInstances.length > 0) {
+                    const localTests = await Promise.allSettled(
+                        localhostInstances.map(instance => this.testDirectConnection(instance))
+                    );
+                    
+                    localTests.forEach((result, index) => {
+                        if (result.status === 'fulfilled' && result.value.accessible) {
+                            this.availableInstances.set(result.value.name, result.value);
+                            results.push(result.value);
+                        }
+                    });
+                } else {
+                    console.log('🏠 No localhost instances registered');
+                }
             }
+
+            console.log(`✅ Discovery complete: ${results.length} instances available`);
+            results.forEach(instance => {
+                console.log(`   ${instance.name} (${instance.method}): ${instance.url}`);
+            });
+
+            return results;
             
-            // Always test localhost directly (should work in web)
-            console.log('🏠 Testing direct localhost connection...');
-            const localInstance = this.targetInstances[0]; // 127.0.0.1:8081
-            const localResult = await this.testDirectConnection(localInstance);
-            
-            if (localResult.accessible) {
-                this.availableInstances.set(localResult.name, localResult);
-                results.push(localResult);
-            }
+        } catch (error) {
+            console.error('❌ Discovery failed:', error);
+            this.availableInstances.clear();
+            return [];
         }
-
-        console.log(`✅ Discovery complete: ${results.length} instances available`);
-        results.forEach(instance => {
-            console.log(`   ${instance.name} (${instance.method}): ${instance.url}`);
-        });
-
-        return results;
     }
 
     // Get available instances sorted by priority
@@ -439,15 +488,18 @@ async function foglampAssetsSmart() {
     return response.json();
 }
 
-async function foglampAssetReadingsSmart(asset, datapoint, limit) {
+async function foglampAssetReadingsSmart(asset, datapoint, limit, skip, seconds, minutes, hours, previous) {
     const dp = (datapoint || "").trim();
     const path = dp ? `/foglamp/asset/${asset}/${dp}` : `/foglamp/asset/${asset}`;
     const params = new URLSearchParams();
-    if (limit != null) params.set("limit", String(limit));
     
-    // Add other parameters as needed (skip, seconds, minutes, etc.)
-    const skipVal = document.getElementById("fl-skip")?.value;
-    if (skipVal) params.set("skip", String(parseInt(skipVal, 10)));
+    // Add parameters based on what's provided
+    if (limit != null && limit > 0) params.set("limit", String(limit));
+    if (skip != null && skip > 0) params.set("skip", String(skip));
+    if (seconds != null && seconds > 0) params.set("seconds", String(seconds));
+    if (minutes != null && minutes > 0) params.set("minutes", String(minutes));
+    if (hours != null && hours > 0) params.set("hours", String(hours));
+    if (previous != null && previous > 0) params.set("previous", String(previous));
     
     const endpoint = `${path}?${params.toString()}`;
     const response = await smartManager.smartFetch(endpoint);

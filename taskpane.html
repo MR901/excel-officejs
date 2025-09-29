@@ -81,8 +81,8 @@
             margin-right: 6px; 
             flex-shrink: 0;
         }
-        .status-dot.reachable { background: #16a34a; }
-        .status-dot.unreachable { background: #dc2626; }
+        .status-dot.success { background: #16a34a; }
+        .status-dot.failed { background: #dc2626; }
         .status-dot.checking { background: #f59e0b; animation: pulse 1s infinite; }
         .status-dot.unknown { background: #9ca3af; }
 
@@ -201,17 +201,25 @@
         }
         .status-pre { 
             white-space: pre-wrap; 
-            background: transparent; 
+            background: #0b0f17; 
             color: #f5f5f5; 
-            padding: 0; 
-            border: none; 
-            border-radius: 0; 
-            min-height: auto; 
-            max-height: none; 
-            overflow: visible; 
+            padding: 8px; 
+            border: 1px solid #374151; 
+            border-radius: 4px; 
+            min-height: 60px; 
+            max-height: 300px; 
+            overflow-y: auto; 
             margin: 0; 
             font-size: 11px; 
             line-height: 1.4; 
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+        
+        /* Summary in main content (not console) */
+        details .status-pre {
+            background: #f8f9fa;
+            color: #212529;
+            border: 1px solid #dee2e6;
         }
     </style>
 </head>
@@ -222,7 +230,7 @@
         <!-- Overview / Connection Status -->
         <details open>
             <summary>Overview</summary>
-            <div class="section-content">
+        <div class="section-content">
                 <div class="row" style="margin-bottom: 12px;">
                     <div id="environment-badge" class="badge">Detecting...</div>
                     <div id="connectivity-badge" class="badge">Checking...</div>
@@ -231,23 +239,23 @@
                 <div class="row" style="margin-bottom: 12px;">
                     <div id="active-instance-display" class="small muted">No active instance</div>
                 </div>
-                <div class="row">
+            <div class="row">
                     <button id="refresh-connections" type="button" title="Re-scan all instances and update status">Refresh Status</button>
                 </div>
                 <div id="proxy-guidance" class="feedback-area warning" style="display: none;">
                     <strong>💡 Excel Web detected:</strong> Run <code>node simple-proxy.js</code> locally to access private network instances.
-                </div>
             </div>
-        </details>
+        </div>
+    </details>
 
         <!-- FogLAMP Instances (Merged) -->
-        <details open>
+    <details open>
             <summary>FogLAMP Instances</summary>
-            <div class="section-content">
+        <div class="section-content">
                 <!-- Add Instance -->
-                <div class="row">
+            <div class="row">
                     <label for="fl-base-url">Add Instance <span class="info" title="Enter FogLAMP URL (e.g., http://127.0.0.1:8081)"><img src="icons/info-icon-16.png" alt="info" /></span></label>
-                    <div class="stack">
+                <div class="stack">
                         <input id="fl-base-url" type="text" placeholder="http://127.0.0.1:8081" />
                         <button id="fl-register" type="button" title="Validate and add this FogLAMP instance">Add</button>
                     </div>
@@ -258,7 +266,7 @@
                 <div id="fl-add-actions" class="row" style="display: none; gap: 6px; margin-top: 6px;">
                     <button id="fl-add-confirm" type="button" class="primary">Add</button>
                     <button id="fl-add-skip" type="button">Skip</button>
-                </div>
+            </div>
 
                 <!-- Instance List -->
                 <div class="row" style="margin-top: 16px;">
@@ -271,59 +279,73 @@
 
                 <!-- Instance Actions Summary -->
                 <div class="row" style="margin-top: 12px;">
-                    <details>
+            <details>
                         <summary>Instance Summary</summary>
-                        <div class="section-content">
-                            <div class="row">
+                <div class="section-content">
+                    <div class="row">
                                 <button id="fl-check-summary" type="button" title="Get detailed summary for active instance">Get Summary</button>
-                            </div>
-                            <pre id="fl-summary" class="status-pre"></pre>
-                        </div>
-                    </details>
+                    </div>
+                    <pre id="fl-summary" class="status-pre"></pre>
                 </div>
-            </div>
-        </details>
+            </details>
+                </div>
+        </div>
+    </details>
 
         <!-- Data Actions -->
-        <details>
+    <details>
             <summary>Data Actions <span class="muted small">(Excel export)</span></summary>
-            <div class="section-content">
+        <div class="section-content">
                 <div class="stack" style="margin-bottom: 12px;">
                     <!-- Export Status -->
                     <div style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px;">
-                        <div class="row">
+            <div class="row">
                             <strong>Export Status</strong>
                             <div class="small muted">Ping, statistics, assets → formatted sheet</div>
-                        </div>
+            </div>
                         <div class="row">
                             <button id="fl-write-status" type="button" title="Export comprehensive status to Excel sheet">Export Status to Sheet</button>
-                        </div>
+        </div>
                     </div>
-                    
+
                     <!-- Export Asset Readings -->
                     <div style="border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px;">
-                        <div class="row">
+            <div class="row">
                             <strong>Export Asset Readings</strong>
                             <div class="small muted">Asset data → formatted sheet</div>
-                        </div>
-                        <div class="row">
+            </div>
+            <div class="row">
                             <div class="stack">
                                 <select id="fl-asset-select" title="Select asset from available assets">
                                     <option value="">Loading assets...</option>
                                 </select>
                                 <input id="fl-asset" type="text" placeholder="or type asset name" />
                             </div>
-                        </div>
-                        <div class="row">
+            </div>
+            <div class="row">
                             <div class="stack">
                                 <input id="fl-datapoint" type="text" placeholder="datapoint (optional)" />
                                 <input id="fl-limit" type="number" min="1" max="10000" value="100" placeholder="limit" style="max-width: 100px;" />
                             </div>
-                        </div>
-                        <div class="row">
+            </div>
+            <div class="row">
+                            <input id="fl-skip" type="number" min="0" value="0" placeholder="skip (pagination)" style="max-width: 120px;" />
+            </div>
+            <div class="row">
+                            <label class="small">Time window (use only one)</label>
+                <div class="stack">
+                    <input id="fl-seconds" type="number" min="1" placeholder="seconds" />
+                    <input id="fl-minutes" type="number" min="1" placeholder="minutes" />
+                    <input id="fl-hours" type="number" min="1" placeholder="hours" />
+                </div>
+            </div>
+            <div class="row">
+                            <input id="fl-previous" type="number" min="1" placeholder="previous (for historical)" />
+            </div>
+            <div class="row">
                             <button id="fl-get-readings" type="button" title="Export asset readings to Excel sheet">Get Readings</button>
-                        </div>
-                    </div>
+            </div>
+        </div>
                 </div>
             </div>
         </details>
@@ -334,7 +356,10 @@
         <div class="console-resizer" title="Drag to resize console"></div>
         <div class="console-header">
             <div class="console-title">Console <span class="muted small">live logs & messages</span></div>
+            <div>
+                <button id="clear-console" style="background: transparent; border: 1px solid #4b5563; color: #e5e7eb; padding: 2px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; margin-right: 8px;" title="Clear console logs">Clear</button>
             <span class="live-badge" title="Status updates appear here in real time">LIVE</span>
+            </div>
         </div>
         <div class="console-content">
             <pre id="fl-status" class="status-pre"></pre>
@@ -403,6 +428,11 @@
             asset: () => document.getElementById("fl-asset"),
             datapoint: () => document.getElementById("fl-datapoint"),
             limit: () => document.getElementById("fl-limit"),
+            skip: () => document.getElementById("fl-skip"),
+            seconds: () => document.getElementById("fl-seconds"),
+            minutes: () => document.getElementById("fl-minutes"),
+            hours: () => document.getElementById("fl-hours"),
+            previous: () => document.getElementById("fl-previous"),
             getReadings: () => document.getElementById("fl-get-readings"),
 
             // Console
@@ -415,6 +445,23 @@
         // and rich metadata for each instance
 
         /**
+         * Utility function to safely extract display name from instance
+         * @param {Object} instance - Instance metadata object
+         * @returns {string} Safe display name
+         */
+        function getDisplayName(instance) {
+            if (instance.name) return instance.name;
+            if (instance.hostName) return instance.hostName;
+            
+            try {
+                return new URL(instance.url).hostname;
+            } catch (e) {
+                // Fallback parsing for malformed URLs
+                return instance.url.replace(/^https?:\/\//, '').split('/')[0] || 'Unknown Instance';
+            }
+        }
+
+        /**
          * Storage key constants
          */
         const ENHANCED_STORAGE_KEYS = {
@@ -423,12 +470,22 @@
         };
 
         /**
+         * Status constants to prevent inconsistencies
+         */
+        const INSTANCE_STATUS = {
+            SUCCESS: 'success',
+            FAILED: 'failed', 
+            CHECKING: 'checking',
+            UNKNOWN: 'unknown'
+        };
+
+        /**
          * Instance metadata structure:
          * {
          *   url: string,
          *   name?: string,           // Optional user-provided name
          *   hostName?: string,       // From FogLAMP /ping response
-         *   lastStatus: 'reachable'|'unreachable'|'checking'|'unknown',
+         *   lastStatus: 'success'|'failed'|'checking'|'unknown',
          *   lastPingMs?: number,     // Response time in milliseconds
          *   lastCheckedAt?: string,  // ISO timestamp
          *   addedAt: string,         // ISO timestamp when first added
@@ -527,7 +584,7 @@
          */
         function saveInstances(instances) {
             try {
-                localStorage.setItem(STORAGE_KEYS.INSTANCES, JSON.stringify(instances));
+            localStorage.setItem(STORAGE_KEYS.INSTANCES, JSON.stringify(instances));
             } catch (e) {
                 console.error('Failed to save instances:', e);
             }
@@ -592,7 +649,7 @@
                     }
                 }
                 
-                return true;
+            return true;
             }
             return false;
         }
@@ -622,7 +679,7 @@
          */
         function setActiveInstance(url) {
             if (getInstances().includes(url)) {
-                localStorage.setItem(STORAGE_KEYS.ACTIVE, url);
+            localStorage.setItem(STORAGE_KEYS.ACTIVE, url);
             } else {
                 console.warn('Attempted to set non-existent instance as active:', url);
             }
@@ -661,31 +718,49 @@
             const environment = window.smartManager?.environment || 'unknown';
             const proxy = window.smartManager?.proxyAvailable || false;
             const instances = getEnhancedInstances();
-            const reachableCount = instances.filter(i => i.lastStatus === 'reachable').length;
+            const reachableCount = instances.filter(i => i.lastStatus === 'success').length;
             
             // Environment badge
             const envBadge = els.environmentBadge();
             if (envBadge) {
-                envBadge.textContent = environment === 'web' ? 'Excel Web' : 'Excel Desktop';
+                envBadge.textContent = environment === 'web' ? 'Excel Web' : 
+                                     environment === 'desktop' ? 'Excel Desktop' : 'Unknown';
                 envBadge.className = `badge ${environment === 'web' ? 'warning' : 'success'}`;
             }
 
-            // Connectivity badge  
+            // Connectivity badge with enhanced status handling
             const connBadge = els.connectivityBadge();
             if (connBadge) {
                 const total = instances.length;
-                connBadge.textContent = total > 0 ? `${reachableCount} of ${total} reachable` : 'No instances';
-                connBadge.className = `badge ${reachableCount === total && total > 0 ? 'success' : (reachableCount > 0 ? 'warning' : 'error')}`;
+                if (total === 0) {
+                    connBadge.textContent = 'No instances';
+                    connBadge.className = 'badge error';
+                } else if (reachableCount === total) {
+                    connBadge.textContent = `All ${total} connected`;
+                    connBadge.className = 'badge success';
+                } else if (reachableCount > 0) {
+                    connBadge.textContent = `${reachableCount} of ${total} connected`;
+                    connBadge.className = 'badge warning';
+                } else {
+                    connBadge.textContent = `0 of ${total} connected`;
+                    connBadge.className = 'badge error';
+                }
             }
 
-            // Proxy badge
+            // Proxy badge with scenario-specific handling
             const proxyBadge = els.proxyBadge();
             if (proxyBadge) {
-                proxyBadge.textContent = proxy ? 'Proxy: On' : 'Proxy: Off';
-                proxyBadge.className = `badge ${proxy ? 'success' : 'error'}`;
+                if (environment === 'desktop') {
+                    proxyBadge.textContent = 'N/A';
+                    proxyBadge.className = 'badge default';
+                } else {
+                    // Web environment
+                    proxyBadge.textContent = proxy ? 'Proxy: Running' : 'Proxy: Not Running';
+                    proxyBadge.className = `badge ${proxy ? 'success' : 'warning'}`;
+                }
             }
 
-            // Active instance display
+            // Active instance display with enhanced messages
             const activeDisplay = els.activeInstanceDisplay();
             if (activeDisplay) {
                 const active = getActiveInstanceWithMeta();
@@ -693,17 +768,23 @@
                     const displayName = active.name || active.hostName || new URL(active.url).hostname;
                     activeDisplay.textContent = `Active: ${displayName}`;
                     activeDisplay.className = 'small';
+                } else if (instances.length === 0) {
+                    activeDisplay.textContent = 'Add instances to get started';
+                    activeDisplay.className = 'small muted';
                 } else {
-                    activeDisplay.textContent = 'No active instance';
+                    activeDisplay.textContent = 'No active instance - click "Set Active"';
                     activeDisplay.className = 'small muted';
                 }
             }
 
-            // Proxy guidance (show for Excel Web when proxy is off and private IPs exist)
+            // Enhanced proxy guidance logic
             const guidance = els.proxyGuidance();
             if (guidance) {
-                const shouldShow = environment === 'web' && !proxy && 
-                    instances.some(i => i.url.includes('192.168.') || i.url.includes('10.') || i.url.includes('172.'));
+                // Only show for web environment with no proxy AND non-localhost instances exist
+                const hasRemoteInstances = instances.some(i => 
+                    !i.url.includes('127.0.0.1') && !i.url.includes('localhost')
+                );
+                const shouldShow = environment === 'web' && !proxy && hasRemoteInstances;
                 guidance.style.display = shouldShow ? 'block' : 'none';
             }
         }
@@ -727,13 +808,13 @@
                 return;
             }
 
-            // Sort instances: Active first, then reachable (by ping time), then unreachable
+            // Sort instances: Active first, then successful (by ping time), then failed
             const sortedInstances = [...instances].sort((a, b) => {
                 if (a.url === activeUrl) return -1;
                 if (b.url === activeUrl) return 1;
-                if (a.lastStatus === 'reachable' && b.lastStatus !== 'reachable') return -1;
-                if (b.lastStatus === 'reachable' && a.lastStatus !== 'reachable') return 1;
-                if (a.lastStatus === 'reachable' && b.lastStatus === 'reachable') {
+                if (a.lastStatus === 'success' && b.lastStatus !== 'success') return -1;
+                if (b.lastStatus === 'success' && a.lastStatus !== 'success') return 1;
+                if (a.lastStatus === 'success' && b.lastStatus === 'success') {
                     return (a.lastPingMs || 999999) - (b.lastPingMs || 999999);
                 }
                 return a.url.localeCompare(b.url);
@@ -754,8 +835,7 @@
 
                 const name = document.createElement('div');
                 name.className = 'instance-name';
-                const displayName = instance.name || instance.hostName || new URL(instance.url).hostname;
-                name.textContent = displayName;
+                name.textContent = getDisplayName(instance);
                 
                 // Add editable name functionality
                 name.addEventListener('dblclick', () => editInstanceName(instance.url, name));
@@ -863,7 +943,7 @@
         // =====================
 
         /**
-         * Log structured message to console
+         * Log structured message to console with enhanced UI features
          * @param {string} level - Log level: 'info', 'warn', 'error'
          * @param {string} message - Log message
          * @param {Object} details - Optional details object
@@ -881,14 +961,40 @@
                 console[consoleMethod](fullMessage);
             }
             
-            // Log to UI console
+            // Log to UI console with enhanced formatting
             const statusElement = els.status();
             if (statusElement) {
                 const logLine = details ? 
                     `${fullMessage} ${JSON.stringify(details).slice(0, 200)}` : 
                     fullMessage;
-                statusElement.textContent += logLine + '\n';
+                
+                // Add visual separator for new messages
+                if (statusElement.textContent.trim()) {
+                    statusElement.textContent += '\n';
+                }
+                
+                // Add the log line with level-based formatting
+                statusElement.textContent += `🔹 ${logLine}`;
+                
+                // Auto-scroll to bottom with smooth animation
                 statusElement.scrollTop = statusElement.scrollHeight;
+                
+                // Briefly highlight the new entry
+                statusElement.style.borderColor = level === 'error' ? '#dc2626' : (level === 'warn' ? '#f59e0b' : '#16a34a');
+                setTimeout(() => {
+                    statusElement.style.borderColor = '#374151';
+                }, 1000);
+            }
+        }
+
+        /**
+         * Clear console logs
+         */
+        function clearConsole() {
+            const statusElement = els.status();
+            if (statusElement) {
+                statusElement.textContent = '';
+                logMessage('info', 'Console cleared');
             }
         }
 
@@ -923,7 +1029,7 @@
                 if (response.ok) {
                     const data = await response.json();
                     updateInstanceMeta(url, {
-                        lastStatus: 'reachable',
+                        lastStatus: 'success',
                         lastPingMs: pingMs,
                         lastCheckedAt: new Date().toISOString(),
                         hostName: data.hostName || getInstanceMeta(url).hostName
@@ -931,7 +1037,7 @@
                     logMessage('info', `Ping OK: ${url} (${pingMs}ms)`, data);
                 } else {
                     updateInstanceMeta(url, {
-                        lastStatus: 'unreachable',
+                        lastStatus: 'failed',
                         lastCheckedAt: new Date().toISOString(),
                         lastError: `HTTP ${response.status}`
                     });
@@ -941,7 +1047,7 @@
                 const endTime = performance.now();
                 const pingMs = Math.round(endTime - startTime);
                 updateInstanceMeta(url, {
-                    lastStatus: 'unreachable',
+                    lastStatus: 'failed',
                     lastCheckedAt: new Date().toISOString(),
                     lastError: error.message
                 });
@@ -985,7 +1091,7 @@
         }
 
         /**
-         * Get statistics for specific instance
+         * Get statistics for specific instance with proper error handling
          * @param {string} url - Instance URL
          */
         async function getInstanceStatistics(url) {
@@ -997,7 +1103,12 @@
                 setActiveInstance(url);
                 
                 const stats = await foglampStatisticsSmart();
-                updateStatus('Statistics retrieved:', stats);
+                
+                // Display in summary area
+                const summaryElement = els.summary();
+                if (summaryElement) {
+                    updateSummary(summaryElement, { statistics: stats });
+                }
                 
                 // Restore original active
                 if (originalActive && originalActive !== url) {
@@ -1006,10 +1117,40 @@
                 }
                 
                 logMessage('info', 'Statistics retrieved successfully', { url });
+                
             } catch (error) {
                 logMessage('error', 'Failed to get statistics', { url, error: error.message });
+                
+                // Display error in summary area
+                const summaryElement = els.summary();
+                if (summaryElement) {
+                    updateSummary(summaryElement, { 
+                        error: `Statistics failed for ${url}: ${error.message}` 
+                    });
+                }
+                
+                // Update main status
                 updateStatus('Statistics failed:', { error: error.message });
             }
+        }
+
+        /**
+         * Enhanced asset readings API call with all parameters
+         * @param {Object} params - API parameters object
+         * @returns {Promise} Asset readings data
+         */
+        async function foglampAssetReadingsSmartWithParams(params) {
+            // Use the existing smart API but with all the parameters
+            return await foglampAssetReadingsSmart(
+                params.asset,
+                params.datapoint,
+                params.limit,
+                params.skip,
+                params.seconds,
+                params.minutes, 
+                params.hours,
+                params.previous
+            );
         }
 
         // Adaptive Add Flow Implementation
@@ -1078,7 +1219,7 @@
          */
         async function confirmAddInstance(url, pingResult) {
             const options = {
-                lastStatus: pingResult?.ok ? 'reachable' : 'unreachable',
+                lastStatus: pingResult?.ok ? 'success' : 'failed',
                 lastPingMs: pingResult?.pingMs,
                 hostName: pingResult?.data?.hostName,
                 lastCheckedAt: new Date().toISOString()
@@ -1189,26 +1330,85 @@
         }
 
         /**
-         * Sync asset dropdown with text input
+         * Refresh asset list for active instance - used by Refresh Status button
+         * Includes proper error handling and logging
+         */
+        async function refreshAssetListForActiveInstance() {
+            const activeInstance = getActiveInstanceWithMeta();
+            if (!activeInstance) {
+                logMessage('info', 'Asset refresh skipped - no active instance');
+                return;
+            }
+
+            logMessage('info', 'Refreshing asset list for active instance', { 
+                instance: getDisplayName(activeInstance) 
+            });
+
+            try {
+                await loadAssetsForActiveInstance();
+                logMessage('info', 'Asset list refreshed successfully');
+                
+            } catch (error) {
+                logMessage('error', 'Failed to refresh asset list', { 
+                    error: error.message,
+                    instance: activeInstance.url 
+                });
+            }
+        }
+
+        /**
+         * Enhanced asset input synchronization with debouncing to prevent race conditions
          */
         function syncAssetInputs() {
             const assetSelect = els.assetSelect();
             const assetInput = els.asset();
             
-            if (assetSelect && assetInput) {
-                assetSelect.addEventListener('change', () => {
-                    if (assetSelect.value) {
-                        assetInput.value = assetSelect.value;
-                    }
-                });
+            if (!assetSelect || !assetInput) return;
+            
+            // Remove existing listeners to prevent duplicates
+            const newSelect = assetSelect.cloneNode(true);
+            const newInput = assetInput.cloneNode(true);
+            assetSelect.parentNode.replaceChild(newSelect, assetSelect);
+            assetInput.parentNode.replaceChild(newInput, assetInput);
+
+            let syncTimeout = null;
+
+            // Sync dropdown to input
+            newSelect.addEventListener('change', () => {
+                if (syncTimeout) clearTimeout(syncTimeout);
                 
-                assetInput.addEventListener('input', () => {
-                    // Clear selection if user types manually
-                    if (assetSelect.value !== assetInput.value) {
-                        assetSelect.value = '';
+                syncTimeout = setTimeout(() => {
+                    if (newSelect.value && newSelect.value !== newInput.value) {
+                        newInput.value = newSelect.value;
+                        logMessage('info', 'Asset synced from dropdown', { asset: newSelect.value });
                     }
-                });
-            }
+                }, 100); // Small debounce
+            });
+
+            // Sync input to dropdown with debounced typing
+            newInput.addEventListener('input', () => {
+                if (syncTimeout) clearTimeout(syncTimeout);
+                
+                syncTimeout = setTimeout(() => {
+                    const inputValue = newInput.value.trim();
+                    
+                    if (inputValue) {
+                        // Find matching option in dropdown
+                        const matchingOption = Array.from(newSelect.options).find(opt => 
+                            opt.value === inputValue
+                        );
+                        
+                        if (matchingOption && newSelect.value !== inputValue) {
+                            newSelect.value = inputValue;
+                            logMessage('info', 'Asset synced from input', { asset: inputValue });
+                        } else if (!matchingOption && newSelect.value !== '') {
+                            newSelect.value = ''; // Clear selection if no match
+                        }
+                    } else if (newSelect.value !== '') {
+                        newSelect.value = ''; // Clear selection if input is empty
+                    }
+                }, 300); // Longer debounce for typing
+            });
         }
 
         // Legacy Helper Functions (Updated for new UI)
@@ -1312,18 +1512,33 @@
             });
             renderInstanceList();
 
-            // Ping all in parallel
-            const results = await Promise.all(instances.map(async (url) => {
+            // Ping all in parallel with proper status tracking
+            const pingPromises = instances.map(async (url) => {
                 try {
-                    await pingInstance(url);
-                    const meta = getInstanceMeta(url);
-                    return meta.lastStatus === 'reachable';
+                    const result = await pingUrlForValidation(url);
+                    const isSuccessful = result.success;
+                    updateInstanceMeta(url, { 
+                        lastStatus: isSuccessful ? 'success' : 'failed',
+                        lastPingMs: result.pingMs || null,
+                        lastCheckedAt: new Date().toISOString(),
+                        lastError: isSuccessful ? null : result.error
+                    });
+                    return isSuccessful;
                 } catch (error) {
+                    updateInstanceMeta(url, { 
+                        lastStatus: 'failed',
+                        lastPingMs: null,
+                        lastCheckedAt: new Date().toISOString(),
+                        lastError: error.message
+                    });
                     return false;
                 }
-            }));
+            });
 
-            const reachableCount = results.filter(Boolean).length;
+            const results = await Promise.allSettled(pingPromises);
+            const reachableCount = results.filter(result => 
+                result.status === 'fulfilled' && result.value
+            ).length;
             
             logMessage('info', 'Refresh: complete', { 
                 reachable: reachableCount, 
@@ -1331,7 +1546,11 @@
                 proxy 
             });
 
+            renderInstanceList();
             updateOverviewBadges();
+            
+            // Refresh asset list for active instance to ensure synchronization
+            await refreshAssetListForActiveInstance();
         }
 
         /**
@@ -1407,10 +1626,20 @@
 
                         await Excel.run(async (context) => {
                             const sheet = await ensureWorksheet(context, sheetName);
+                            sheet.load("usedRange");
+                            await context.sync();
+                            
+                            // Clear existing content
+                            if (sheet.usedRange) {
+                                sheet.usedRange.clear();
+                                await context.sync();
+                            }
+                            
                             const start = sheet.getRange("A1");
 
-                            // Enhanced formatting for status export
-                            writeTable(start, [
+                            // Write data using simple approach
+                            const data = [
+                                ["Type", "Data"],
                                 ["Instance", instanceName],
                                 ["URL", activeInstance.url],
                                 ["Timestamp", new Date().toISOString()],
@@ -1420,15 +1649,19 @@
                                 ["STATISTICS", JSON.stringify(stats, null, 2)],
                                 ["", ""],
                                 ["ASSETS", JSON.stringify(assets, null, 2)]
-                            ], ["Type", "Data"]);
+                            ];
 
-                            start.format.autofitColumns();
+                            // Calculate range size and set values
+                            const range = start.getResizedRange(data.length - 1, data[0].length - 1);
+                            range.values = data;
+
+                            // Format headers
+                            const headerRow = sheet.getRange("A1:B1");
+                            headerRow.format.font.bold = true;
+                            headerRow.format.fill.color = "#E3F2FD";
                             
-                            // Bold headers
-                            sheet.getRange("A1:A3").format.font.bold = true;
-                            sheet.getRange("A5").format.font.bold = true;
-                            sheet.getRange("A7").format.font.bold = true;
-                            sheet.getRange("A9").format.font.bold = true;
+                            // Auto-fit columns
+                            sheet.getRange("A:B").format.autofitColumns();
                         });
 
                         updateStatus(`Status exported to sheet '${sheetName}'`);
@@ -1464,6 +1697,19 @@
 
                     const datapoint = (els.datapoint()?.value || "").trim();
                     const limit = Math.max(1, Math.min(10000, parseInt(els.limit()?.value || "100", 10)));
+                    const skip = Math.max(0, parseInt(els.skip()?.value || "0", 10));
+                    const seconds = els.seconds()?.value ? parseInt(els.seconds().value, 10) : -1;
+                    const minutes = els.minutes()?.value ? parseInt(els.minutes().value, 10) : -1;
+                    const hours = els.hours()?.value ? parseInt(els.hours().value, 10) : -1;
+                    const previous = els.previous()?.value ? parseInt(els.previous().value, 10) : -1;
+                    
+                    // Validate time window usage (only one should be used)
+                    const timeParams = [seconds, minutes, hours].filter(v => v > 0);
+                    if (timeParams.length > 1) {
+                        updateStatus("Error: Use only one time window parameter (seconds, minutes, or hours)");
+                        logMessage('warn', 'Export Readings: multiple time window parameters specified');
+                        return;
+                    }
                     
                     const instanceName = activeInstance.name || activeInstance.hostName || new URL(activeInstance.url).hostname;
                     const sheetName = `${instanceName} - asset - ${asset}`;
@@ -1472,12 +1718,27 @@
                         instance: instanceName, 
                         asset, 
                         datapoint: datapoint || 'all',
-                        limit 
+                        limit,
+                        skip,
+                        timeWindow: timeParams.length > 0 ? { seconds, minutes, hours } : 'none',
+                        previous 
                     });
                     updateStatus("Fetching asset readings...");
                     
                     try {
-                        const data = await foglampAssetReadingsSmart(asset, datapoint, limit);
+                        // Build parameters for the smart API call
+                        const apiParams = {
+                            asset,
+                            datapoint: datapoint || '',
+                            limit: timeParams.length > 0 ? -1 : limit,  // Disable limit when using time window
+                            skip: timeParams.length > 0 ? -1 : skip,    // Disable skip when using time window
+                            seconds: seconds > 0 ? seconds : -1,
+                            minutes: minutes > 0 ? minutes : -1,
+                            hours: hours > 0 ? hours : -1,
+                            previous: previous > 0 ? previous : -1
+                        };
+                        
+                        const data = await foglampAssetReadingsSmartWithParams(apiParams);
                         const { header, rows } = flattenReadings(data);
                         
                         await Excel.run(async (context) => {
@@ -1488,7 +1749,17 @@
                             
                             // Format headers
                             if (header.length > 0) {
-                                const headerRange = sheet.getRange(`A1:${String.fromCharCode(64 + header.length)}1`);
+                                // Safe column letter calculation for Excel ranges
+                                function getColumnLetter(colIndex) {
+                                    let result = '';
+                                    while (colIndex >= 0) {
+                                        result = String.fromCharCode(65 + (colIndex % 26)) + result;
+                                        colIndex = Math.floor(colIndex / 26) - 1;
+                                    }
+                                    return result;
+                                }
+                                
+                                const headerRange = sheet.getRange(`A1:${getColumnLetter(header.length - 1)}1`);
                                 headerRange.format.font.bold = true;
                                 headerRange.format.fill.color = "#E3F2FD";
                             }
@@ -1514,6 +1785,12 @@
 
             // Asset input synchronization
             syncAssetInputs();
+
+            // Console clear button
+            const clearConsoleBtn = document.getElementById('clear-console');
+            if (clearConsoleBtn) {
+                clearConsoleBtn.addEventListener('click', clearConsole);
+            }
         }
 
         /**
@@ -1657,7 +1934,7 @@
             return { header, rows };
         }
 
-        // Smart Connection Management
+        // Smart Connection Management with enhanced error handling
         async function initializeSmartConnections() {
             updateEnvironmentInfo('Detecting environment...');
             updateConnectionSummary('Initializing...');
@@ -1674,12 +1951,31 @@
                 const environment = smartManager.detectEnvironment();
                 console.log('🔍 Environment detection result:', environment);
                 updateEnvironmentInfo(`Environment: ${environment === 'web' ? 'Excel Web 🌐' : 'Excel Desktop 📱'}`);
+                logMessage('info', `Environment detected: ${environment}`);
+
+                // Get registered instances count before discovery
+                const registeredInstances = getInstances();
+                logMessage('info', `Found ${registeredInstances.length} registered instances`);
+
+                if (registeredInstances.length === 0) {
+                    updateConnectionSummary('No instances registered - Add instances to get started');
+                    logMessage('info', 'No instances registered - user needs to add instances');
+                    
+                    // Still initialize UI components
+                    await populateSmartInstances();
+                    
+                    console.log('✅ Smart connection initialization complete (no instances)');
+                    return;
+                }
 
                 // Discover available instances
                 updateConnectionSummary('Discovering instances...');
                 console.log('🔍 Starting instance discovery...');
+                logMessage('info', 'Starting instance discovery...');
+                
                 const instances = await smartManager.discoverInstances();
                 console.log('✅ Instance discovery complete:', instances.length, 'instances found');
+                logMessage('info', `Instance discovery complete: ${instances.length}/${registeredInstances.length} accessible`);
                 
                 updateConnectionSummary('Discovery complete');
                 updateConnectionStatus();
@@ -1688,10 +1984,19 @@
                 await populateSmartInstances();
                 
                 console.log('✅ Smart connection initialization complete');
+                logMessage('info', 'Smart connection initialization complete');
                 
             } catch (error) {
                 console.error('❌ Smart connection initialization failed:', error);
+                logMessage('error', 'Smart connection initialization failed', { error: error.message });
                 updateConnectionSummary('Initialization failed: ' + error.message);
+                
+                // Still try to initialize UI even if discovery fails
+                try {
+                    await populateSmartInstances();
+                } catch (uiError) {
+                    console.error('UI initialization also failed:', uiError);
+                }
             }
         }
 
@@ -1737,7 +2042,8 @@
         async function populateSmartInstances() {
             // Just refresh the UI list with what's already registered by users
             // Don't auto-add instances - let users register them manually
-            populateList();
+            renderInstanceList();
+            updateOverviewBadges();
         }
 
         // Enhanced Event Wiring & Initialization
@@ -1793,8 +2099,10 @@
             resizer.addEventListener('mousedown', (e) => {
                 isDragging = true;
                 startY = e.clientY;
-                const currentHeight = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--console-height')) || 28;
-                startH = currentHeight;
+                // Safe height calculation with fallback
+                const heightValue = getComputedStyle(document.documentElement).getPropertyValue('--console-height');
+                const currentHeight = heightValue ? parseInt(heightValue.replace('px', '')) : 28;
+                startH = isNaN(currentHeight) ? 28 : currentHeight;
                 document.body.style.userSelect = 'none'; // Prevent text selection while dragging
                 window.addEventListener('mousemove', onMouseMove);
                 window.addEventListener('mouseup', onMouseUp);

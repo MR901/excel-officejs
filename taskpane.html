@@ -28,7 +28,7 @@
                 </div>
             <div class="row">
                 <div class="stack">
-                    <button id="update-connections" type="button" title="Check all instances, update status, and refresh connections">Update Connections</button>
+                    <button id="update-connections" type="button" title="Check all instances, update status, and refresh connections">Refresh Connections</button>
                 </div>
             </div>
                 <div id="proxy-guidance" class="feedback-area warning" style="display: none;">
@@ -517,16 +517,41 @@
                 console.log('✅ FogLAMP modular system ready - taskpane.html initialization complete');
                 console.log('📋 Available modules:', Object.keys(window.FogLAMP));
                 
-                // All initialization is now handled by main.js
-                // This includes:
-                // - Smart connection manager setup
-                // - Event listeners configuration  
-                // - UI component initialization
-                // - Badge status updates
-                // - Instance list rendering
-                // - Asset management setup
-                // - Excel integration setup
-                // - Console system initialization
+                // Ensure all components are properly initialized
+                if (window.FogLAMP.app && window.FogLAMP.app.initialize) {
+                    console.log('🚀 Triggering manual app initialization...');
+                    await window.FogLAMP.app.initialize();
+                }
+                
+                // Force instance list rendering if not already done
+                if (window.renderInstanceList) {
+                    console.log('🔄 Force rendering instance list...');
+                    window.renderInstanceList();
+                }
+                
+                // Update badges to show current status
+                if (window.updateOverviewBadges) {
+                    console.log('🔄 Force updating overview badges...');
+                    window.updateOverviewBadges();
+                }
+                
+                // Add debugging helper
+                window.debugInstanceList = function() {
+                    console.log('🐞 INSTANCE LIST DEBUG:');
+                    console.log('- getInstances():', window.getInstances ? window.getInstances() : 'NOT AVAILABLE');
+                    console.log('- getEnhancedInstances():', window.getEnhancedInstances ? window.getEnhancedInstances() : 'NOT AVAILABLE');
+                    console.log('- getActiveInstance():', window.getActiveInstance ? window.getActiveInstance() : 'NOT AVAILABLE');
+                    console.log('- renderInstanceList function:', typeof window.renderInstanceList);
+                    console.log('- instances container element:', document.getElementById('instances-container'));
+                    console.log('- empty state element:', document.getElementById('empty-instances'));
+                    
+                    // Try to force render
+                    if (window.renderInstanceList) {
+                        console.log('🔄 Attempting to force render...');
+                        window.renderInstanceList();
+                    }
+                };
+                console.log('🐞 Debug helper available: Call debugInstanceList() in console');
                 
             } catch (error) {
                 console.error('❌ taskpane.html initialization failed:', error);

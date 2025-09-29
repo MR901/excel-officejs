@@ -107,7 +107,8 @@ class FogLAMPDataLink {
             assets: this.assets,
             ping: this.ping,
             excel: this.excel,
-            events: this.events
+            events: this.events,
+            app: this  // Expose the app instance for manual initialization
         };
         
         // Expose individual storage functions globally for backward compatibility

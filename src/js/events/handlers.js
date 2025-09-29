@@ -98,12 +98,12 @@ export class EventHandlerManager {
     }
 
     /**
-     * Handle update connections - comprehensive connection management
+     * Handle refresh connections - comprehensive connection management
      * Combines smart refresh with full reset when needed
      */
     async handleUpdateConnections() {
         if (this.updateConnectionsInProgress) {
-            logMessage('info', 'Update connections already in progress, skipping');
+            logMessage('info', 'Refresh connections already in progress, skipping');
             return;
         }
 
@@ -113,11 +113,15 @@ export class EventHandlerManager {
             const instances = getInstances();
             
             if (instances.length === 0) {
-                logMessage('info', 'Update connections: no instances to check');
+                logMessage('info', 'Refresh connections: no instances to check, but updating UI status');
+                
+                // Still update UI even with no instances to refresh badges and status
+                this.updateUIAfterRefresh();
+                logMessage('info', '✅ Connection refresh completed (no instances)');
                 return;
             }
 
-            logMessage('info', `🔄 Updating connections for ${instances.length} instances...`);
+            logMessage('info', `🔄 Refreshing connections for ${instances.length} instances...`);
 
             // Phase 1: Smart Manager Reset & Re-discovery
             if (window.smartManager) {
@@ -249,7 +253,7 @@ export class EventHandlerManager {
                 successRate: Math.round((successful / instances.length) * 100)
             };
 
-            logMessage('info', '🎉 Connection update completed!', summary);
+            logMessage('info', '🎉 Connection refresh completed!', summary);
             
             if (successful === instances.length) {
                 logMessage('info', '✅ All instances are reachable and healthy');
@@ -260,7 +264,7 @@ export class EventHandlerManager {
             }
 
         } catch (error) {
-            logMessage('error', 'Connection update failed', { error: error.message });
+            logMessage('error', 'Connection refresh failed', { error: error.message });
         } finally {
             this.updateConnectionsInProgress = false;
         }
@@ -337,7 +341,7 @@ export class EventHandlerManager {
         // Add Instance (Adaptive flow)
         this.addEventListenerSafely('register', 'click', () => this.handleAddInstance());
 
-        // Update Connections (Merged refresh + reset)
+        // Refresh Connections (Merged refresh + reset)
         this.addEventListenerSafely('updateConnections', 'click', () => this.handleUpdateConnections());
 
         // Check Summary

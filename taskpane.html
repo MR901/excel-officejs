@@ -483,15 +483,9 @@
         // Smart Connection Management with enhanced error handling
         // initializeSmartConnections() now handled by modular system in main.js
 
-        function updateEnvironmentInfo(message) {
-            const el = document.getElementById('environment-info');
-            if (el) el.textContent = message;
-        }
-
-        function updateConnectionSummary(message) {
-            const el = document.getElementById('connection-summary');
-            if (el) el.textContent = message;
-        }
+        // Legacy functions - replaced by modular badge system
+        // updateEnvironmentInfo and updateConnectionSummary are now handled by 
+        // badgeManager.updateOverviewBadges() in src/js/ui/badges.js
 
         // function updateConnectionStatus() moved to modular system
 

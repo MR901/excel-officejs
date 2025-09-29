@@ -18,12 +18,12 @@ export class ExcelIntegrationManager {
         this.worksheetCache = new Map(); // Cache worksheets by name
         this.exportFormats = {
             status: {
-                sheetSuffix: '- FogLAMP - Status',
+                sheetSuffix: 'Status',  // Simplified for Excel sheet name compliance
                 dateFormat: 'mm/dd/yyyy hh:mm:ss',
                 headers: ['Type', 'Data']
             },
             readings: {
-                sheetSuffix: '- asset -',
+                sheetSuffix: 'data',  // Simplified for Excel sheet name compliance  
                 dateFormat: 'mm/dd/yyyy hh:mm:ss AM/PM',
                 timestampColumn: 'timestamp'
             }
@@ -203,10 +203,11 @@ export class ExcelIntegrationManager {
         }
 
         const instanceName = getDisplayName(activeInstance);
-        const sheetName = `${instanceName} ${this.exportFormats.status.sheetSuffix}`;
+        // Create Excel-safe sheet name (max 31 chars, no invalid characters)
+        const safeSheetName = this.createSafeSheetName(instanceName, 'Status');
 
         try {
-            logMessage('info', 'Starting status export', { instance: instanceName, sheet: sheetName });
+            logMessage('info', 'Starting status export', { instance: instanceName, sheet: safeSheetName });
 
             // Fetch all required data
             const [ping, stats, assets] = await Promise.allSettled([
@@ -216,7 +217,7 @@ export class ExcelIntegrationManager {
             ]);
 
             await Excel.run(async (context) => {
-                const sheet = await this.ensureWorksheet(context, sheetName);
+                const sheet = await this.ensureWorksheet(context, safeSheetName);
                 sheet.load("usedRange");
                 await context.sync();
                 
@@ -231,6 +232,11 @@ export class ExcelIntegrationManager {
                 // Prepare status data
                 const statusData = this.prepareStatusData(activeInstance, ping, stats, assets);
                 
+                // Validate data before writing
+                if (!this.validateDataForExcel(statusData)) {
+                    throw new Error('Invalid data format for Excel export');
+                }
+                
                 // Write data to sheet
                 await this.writeTable(start, statusData, this.exportFormats.status.headers, {
                     headerFormat: true,
@@ -239,7 +245,7 @@ export class ExcelIntegrationManager {
                 });
 
                 logMessage('info', 'Status export completed successfully', { 
-                    sheet: sheetName,
+                    sheet: safeSheetName,
                     rows: statusData.length 
                 });
             });
@@ -281,7 +287,7 @@ export class ExcelIntegrationManager {
         }
 
         const instanceName = getDisplayName(activeInstance);
-        const sheetName = `${instanceName} ${this.exportFormats.readings.sheetSuffix} ${asset}`;
+        const sheetName = this.createSafeSheetName(instanceName, `${asset}-data`);
 
         try {
             logMessage('info', 'Starting readings export', { 
@@ -304,6 +310,11 @@ export class ExcelIntegrationManager {
                 
                 // Process readings data
                 const { headers, rows } = this.flattenReadings(readings);
+                
+                // Validate data before writing
+                if (!this.validateDataForExcel(rows)) {
+                    throw new Error('Invalid readings data format for Excel export');
+                }
                 
                 // Write data to sheet with proper formatting
                 await this.writeTable(start, rows, headers, {
@@ -410,13 +421,136 @@ export class ExcelIntegrationManager {
     formatResultData(result) {
         if (result.status === 'fulfilled') {
             try {
-                return JSON.stringify(result.value, null, 2);
+                const jsonString = JSON.stringify(result.value, null, 2);
+                // Excel has a cell limit of ~32,767 characters
+                if (jsonString.length > 30000) {
+                    return this.truncateForExcel(jsonString, 30000);
+                }
+                return jsonString;
             } catch (error) {
-                return String(result.value);
+                const stringValue = String(result.value);
+                return stringValue.length > 30000 ? 
+                       this.truncateForExcel(stringValue, 30000) : 
+                       stringValue;
             }
         } else {
             return `Error: ${result.reason?.message || 'Unknown error'}`;
         }
+    }
+
+    /**
+     * Create Excel-safe sheet name with intelligent truncation
+     * @param {string} instanceName - Instance name
+     * @param {string} suffix - Sheet suffix (may contain dynamic parts like asset names)
+     * @returns {string} Safe sheet name
+     */
+    createSafeSheetName(instanceName, suffix) {
+        // Excel sheet name restrictions:
+        // - Max 31 characters
+        // - Cannot contain: \ / ? * [ ] :
+        // - Cannot be empty
+        
+        const invalidChars = /[\\\/\?\*\[\]:]/g;
+        const cleanInstanceName = instanceName.replace(invalidChars, '-');
+        const cleanSuffix = suffix.replace(invalidChars, '-');
+        
+        // Create name with format: "InstanceName-Suffix"
+        const fullName = `${cleanInstanceName}-${cleanSuffix}`;
+        
+        // If it fits, return as is
+        if (fullName.length <= 31) {
+            return fullName;
+        }
+        
+        // Intelligent truncation for long names
+        // For asset readings: "instance-assetname-data" format
+        // For status: "instance-Status" format
+        
+        if (cleanSuffix.includes('-data')) {
+            // Asset readings format: prioritize showing some of both instance and asset
+            const parts = cleanSuffix.split('-data');
+            const assetPart = parts[0]; // The asset name part
+            
+            // Reserve space: 8 chars for instance, 1 for hyphen, up to 18 for asset, 1 hyphen, 4 for "data"
+            const maxInstanceLength = Math.max(6, Math.min(12, Math.floor((31 - 6) * 0.4))); // 6-12 chars
+            const maxAssetLength = 31 - maxInstanceLength - 6; // remaining space minus "-" and "-data"
+            
+            const truncatedInstance = cleanInstanceName.substring(0, maxInstanceLength);
+            const truncatedAsset = assetPart.substring(0, maxAssetLength);
+            
+            return `${truncatedInstance}-${truncatedAsset}-data`;
+            
+        } else {
+            // Status or other formats: prioritize suffix, truncate instance name
+            const maxInstanceLength = 31 - cleanSuffix.length - 1; // -1 for hyphen
+            
+            if (maxInstanceLength > 0) {
+                return `${cleanInstanceName.substring(0, maxInstanceLength)}-${cleanSuffix}`;
+            }
+            
+            // If suffix is extremely long, truncate both intelligently
+            const maxInstanceLength2 = Math.max(4, Math.floor((31 - 1) * 0.3)); // At least 4 chars, up to 30% of space
+            const maxSuffixLength = 31 - maxInstanceLength2 - 1;
+            
+            return `${cleanInstanceName.substring(0, maxInstanceLength2)}-${cleanSuffix.substring(0, maxSuffixLength)}`;
+        }
+    }
+
+    /**
+     * Validate data for Excel compatibility
+     * @param {Array} data - Data array to validate
+     * @returns {boolean} Whether data is valid
+     */
+    validateDataForExcel(data) {
+        if (!Array.isArray(data)) {
+            logMessage('error', 'Excel validation: Data is not an array', { dataType: typeof data });
+            return false;
+        }
+        
+        // Check each row
+        for (let i = 0; i < data.length; i++) {
+            const row = data[i];
+            if (!Array.isArray(row)) {
+                logMessage('error', 'Excel validation: Row is not an array', { rowIndex: i, rowType: typeof row });
+                return false;
+            }
+            
+            // Check each cell in the row
+            for (let j = 0; j < row.length; j++) {
+                const cell = row[j];
+                
+                // Convert null/undefined to empty string
+                if (cell === null || cell === undefined) {
+                    row[j] = '';
+                    continue;
+                }
+                
+                // Convert to string if not already
+                if (typeof cell !== 'string' && typeof cell !== 'number' && typeof cell !== 'boolean') {
+                    row[j] = String(cell);
+                }
+                
+                // Check for extremely long strings
+                if (typeof row[j] === 'string' && row[j].length > 32000) {
+                    row[j] = this.truncateForExcel(row[j], 30000);
+                }
+            }
+        }
+        
+        return true;
+    }
+
+    /**
+     * Truncate string for Excel compatibility
+     * @param {string} str - String to truncate
+     * @param {number} maxLength - Maximum length
+     * @returns {string} Truncated string
+     */
+    truncateForExcel(str, maxLength = 30000) {
+        if (!str || str.length <= maxLength) return str;
+        
+        const truncated = str.substring(0, maxLength - 50);
+        return truncated + '\n\n... [Data truncated for Excel compatibility]';
     }
 
     /**

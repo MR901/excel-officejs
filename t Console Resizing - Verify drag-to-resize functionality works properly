@@ -1,0 +1,22 @@
+[0;1;32m●[0m foglamp.service - LSB: FogLAMP
+     Loaded: loaded (/etc/init.d/foglamp; generated)
+     Active: [0;1;32mactive (running)[0m since Mon 2025-09-29 11:55:32 IST; 6h ago
+       Docs: man:systemd-sysv-generator(8)
+      Tasks: 107 (limit: 38047)
+     Memory: 118.7M
+     CGroup: /system.slice/foglamp.service
+             ├─2499511 /usr/bin/python3 /usr/local/foglamp/python/foglamp/services/core/__main__.py
+             ├─2504346 /usr/local/foglamp/services/foglamp.services.storage --address=0.0.0.0 --port=46529
+             ├─2504878 ./foglamp.services.south --port=46529 --address=127.0.0.1 --token=wOgSkZkvxNyBPJGJflQxPGEAoJPnlrCo --delay=9 --name=SinSouthService
+             └─2830636 ./foglamp.services.south --port=46529 --address=127.0.0.1 --token=NswelTtkTPAAKSlHordgdzQEneEXHzis --name=CosSouth
+
+Sep 29 17:49:14 mohit-prime-laptop foglamp.service[2504346]: [0;1;31m[0;1;39m[0;1;31mFogLAMP Storage[2504346]: ERROR: Available disk space is becoming low, please consider releasing more disk space[0m
+Sep 29 17:54:14 mohit-prime-laptop foglamp.service[2504346]: [0;1;31m[0;1;39m[0;1;31mFogLAMP Storage[2504346]: ERROR: Available disk space is becoming low, please consider releasing more disk space[0m
+Sep 29 17:59:14 mohit-prime-laptop foglamp.service[2504346]: [0;1;31m[0;1;39m[0;1;31mFogLAMP Storage[2504346]: ERROR: Available disk space is becoming low, please consider releasing more disk space[0m
+Sep 29 18:04:15 mohit-prime-laptop foglamp.service[2504346]: [0;1;31m[0;1;39m[0;1;31mFogLAMP Storage[2504346]: ERROR: Available disk space is becoming low, please consider releasing more disk space[0m
+Sep 29 18:09:15 mohit-prime-laptop foglamp.service[2504346]: [0;1;31m[0;1;39m[0;1;31mFogLAMP Storage[2504346]: ERROR: Available disk space is becoming low, please consider releasing more disk space[0m
+Sep 29 18:14:15 mohit-prime-laptop foglamp.service[2504346]: [0;1;31m[0;1;39m[0;1;31mFogLAMP Storage[2504346]: ERROR: Available disk space is becoming low, please consider releasing more disk space[0m
+Sep 29 18:19:15 mohit-prime-laptop foglamp.service[2504346]: [0;1;31m[0;1;39m[0;1;31mFogLAMP Storage[2504346]: ERROR: Available disk space is becoming low, please consider releasing more disk space[0m
+Sep 29 18:24:15 mohit-prime-laptop foglamp.service[2504346]: [0;1;31m[0;1;39m[0;1;31mFogLAMP Storage[2504346]: ERROR: Available disk space is becoming low, please consider releasing more disk space[0m
+Sep 29 18:27:01 mohit-prime-laptop python3[2499511]: [0;1;38;5;185m[0;1;39m[0;1;38;5;185mFogLAMP[2499511] WARNING: browser: foglamp.services.core.api.browser: Manual purge of 'cosine_wave' asset has been requested.[0m
+Sep 29 18:27:03 mohit-prime-laptop python3[2499511]: [0;1;38;5;185m[0;1;39m[0;1;38;5;185mFogLAMP[2499511] WARNING: browser: foglamp.services.core.api.browser: Manual purge of 'sinusoid' asset has been requested.[0m

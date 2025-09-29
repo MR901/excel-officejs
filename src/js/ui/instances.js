@@ -344,6 +344,11 @@ export class InstanceListManager {
         try {
             await window.pingInstance(url);
             this.renderInstanceList();
+            
+            // Update badges if available (ping status affects connectivity badge)
+            if (window.updateOverviewBadges) {
+                window.updateOverviewBadges();
+            }
         } catch (error) {
             logMessage('error', 'Ping failed', { url, error: error.message });
         }

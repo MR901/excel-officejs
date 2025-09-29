@@ -126,6 +126,9 @@ class FogLAMPDataLink {
         window.normalizeBaseUrl = normalizeBaseUrl;
         window.saveInstances = (instances) => instanceStorage.saveInstances(instances);
         
+        // Expose utility functions globally for backward compatibility
+        window.getDisplayName = getDisplayName;
+        
         // Expose console functions globally for backward compatibility  
         window.logMessage = logMessage;
         window.clearConsole = clearConsole;

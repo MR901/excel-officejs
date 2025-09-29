@@ -203,12 +203,12 @@
             white-space: pre-wrap; 
             background: #0b0f17; 
             color: #f5f5f5; 
-            padding: 8px; 
-            border: 1px solid #374151; 
-            border-radius: 4px; 
-            min-height: 60px; 
-            max-height: 300px; 
-            overflow-y: auto; 
+            padding: 0; 
+            border: none; 
+            border-radius: 0; 
+            min-height: auto; 
+            max-height: none; 
+            overflow: visible; 
             margin: 0; 
             font-size: 11px; 
             line-height: 1.4; 
@@ -240,8 +240,11 @@
                     <div id="active-instance-display" class="small muted">No active instance</div>
                 </div>
             <div class="row">
+                <div class="stack">
                     <button id="refresh-connections" type="button" title="Re-scan all instances and update status">Refresh Status</button>
+                    <button id="reset-connections" type="button" title="Reset all connections and force complete re-discovery">Reset Connections</button>
                 </div>
+            </div>
                 <div id="proxy-guidance" class="feedback-area warning" style="display: none;">
                     <strong>💡 Excel Web detected:</strong> Run <code>node simple-proxy.js</code> locally to access private network instances.
             </div>
@@ -283,7 +286,7 @@
                         <summary>Instance Summary</summary>
                 <div class="section-content">
                     <div class="row">
-                                <button id="fl-check-summary" type="button" title="Get detailed summary for active instance">Get Summary</button>
+                                <button id="fl-check-summary" type="button" title="Get comprehensive status (ping + statistics + assets) for active instance">Get Active Instance Details</button>
                     </div>
                     <pre id="fl-summary" class="status-pre"></pre>
                 </div>
@@ -406,6 +409,7 @@
             proxyBadge: () => document.getElementById("proxy-badge"),
             activeInstanceDisplay: () => document.getElementById("active-instance-display"),
             refreshConnections: () => document.getElementById("refresh-connections"),
+            resetConnections: () => document.getElementById("reset-connections"),
             proxyGuidance: () => document.getElementById("proxy-guidance"),
 
             // Add instance form
@@ -720,6 +724,15 @@
             const instances = getEnhancedInstances();
             const reachableCount = instances.filter(i => i.lastStatus === 'success').length;
             
+            // Debug logging for status calculation
+            if (instances.length > 0) {
+                const statusBreakdown = instances.reduce((acc, inst) => {
+                    acc[inst.lastStatus || 'unknown'] = (acc[inst.lastStatus || 'unknown'] || 0) + 1;
+                    return acc;
+                }, {});
+                console.log(`🔍 Status calculation: ${reachableCount}/${instances.length} connected`, statusBreakdown);
+            }
+            
             // Environment badge
             const envBadge = els.environmentBadge();
             if (envBadge) {
@@ -883,10 +896,7 @@
                 pingBtn.onclick = () => pingInstance(instance.url);
                 actions.appendChild(pingBtn);
 
-                const statsBtn = document.createElement('button');
-                statsBtn.textContent = 'Statistics';
-                statsBtn.onclick = () => getInstanceStatistics(instance.url);
-                actions.appendChild(statsBtn);
+                // Removed confusing per-instance Statistics button - use main "Get Summary" instead
 
                 const removeBtn = document.createElement('button');
                 removeBtn.textContent = 'Remove';
@@ -965,7 +975,7 @@
             const statusElement = els.status();
             if (statusElement) {
                 const logLine = details ? 
-                    `${fullMessage} ${JSON.stringify(details).slice(0, 200)}` : 
+                    `${fullMessage} ${JSON.stringify(details)}` : 
                     fullMessage;
                 
                 // Add visual separator for new messages
@@ -1032,30 +1042,38 @@
                         lastStatus: 'success',
                         lastPingMs: pingMs,
                         lastCheckedAt: new Date().toISOString(),
-                        hostName: data.hostName || getInstanceMeta(url).hostName
+                        hostName: data.hostName || getInstanceMeta(url).hostName,
+                        lastError: null // Clear previous errors on success
                     });
-                    logMessage('info', `Ping OK: ${url} (${pingMs}ms)`, data);
+                    logMessage('info', `Individual ping SUCCESS: ${url} (${pingMs}ms)`, data);
                 } else {
                     updateInstanceMeta(url, {
                         lastStatus: 'failed',
+                        lastPingMs: pingMs,
                         lastCheckedAt: new Date().toISOString(),
                         lastError: `HTTP ${response.status}`
                     });
-                    logMessage('warn', `Ping failed: ${url} (HTTP ${response.status})`);
+                    logMessage('warn', `Individual ping FAILED: ${url} (HTTP ${response.status})`);
                 }
             } catch (error) {
                 const endTime = performance.now();
                 const pingMs = Math.round(endTime - startTime);
                 updateInstanceMeta(url, {
                     lastStatus: 'failed',
+                    lastPingMs: null, // No meaningful ping time for network errors
                     lastCheckedAt: new Date().toISOString(),
                     lastError: error.message
                 });
-                logMessage('warn', `Ping failed: ${url} (${error.message})`);
+                logMessage('warn', `Individual ping NETWORK ERROR: ${url} (${error.message})`);
             }
             
             renderInstanceList();
             updateOverviewBadges();
+            
+            // 🔧 CRITICAL FIX: Sync individual ping results with smart connection manager
+            // This prevents the dual status system desync bug where individual ping works
+            // but Get Summary/Export functions fail due to smart manager thinking instances are inaccessible
+            await syncToSmartManager();
         }
 
         /**
@@ -1078,15 +1096,21 @@
          */
         function removeInstanceWithConfirm(url) {
             const instance = getInstanceMeta(url);
-            const displayName = instance.name || instance.hostName || new URL(url).hostname;
+            const displayName = getDisplayName(instance);
+            
+            logMessage('info', 'Remove requested', { url, displayName });
             
             if (confirm(`Remove instance "${displayName}"?\n\nURL: ${url}`)) {
                 const removed = removeInstance(url);
                 if (removed) {
-                    logMessage('info', 'Instance removed', { url, name: displayName });
+                    logMessage('info', 'Instance removed successfully', { url, name: displayName });
                     renderInstanceList();
                     updateOverviewBadges();
+                } else {
+                    logMessage('warn', 'Failed to remove instance', { url });
                 }
+            } else {
+                logMessage('info', 'Remove cancelled by user', { url });
             }
         }
 
@@ -1516,12 +1540,13 @@
             const pingPromises = instances.map(async (url) => {
                 try {
                     const result = await pingUrlForValidation(url);
-                    const isSuccessful = result.success;
+                    const isSuccessful = result.ok; // Fixed: was result.success (undefined)
                     updateInstanceMeta(url, { 
                         lastStatus: isSuccessful ? 'success' : 'failed',
                         lastPingMs: result.pingMs || null,
                         lastCheckedAt: new Date().toISOString(),
-                        lastError: isSuccessful ? null : result.error
+                        lastError: isSuccessful ? null : result.error,
+                        hostName: result.data?.hostName || getInstanceMeta(url).hostName
                     });
                     return isSuccessful;
                 } catch (error) {
@@ -1551,6 +1576,51 @@
             
             // Refresh asset list for active instance to ensure synchronization
             await refreshAssetListForActiveInstance();
+            
+            // 🔄 CRITICAL FIX: Ensure smart manager is synchronized with latest ping results
+            await syncToSmartManager();
+        }
+
+        /**
+         * Handle reset connections - force complete connection state reset
+         */
+        async function handleResetConnections() {
+            logMessage('info', 'Resetting all connections - forcing complete re-discovery...');
+            
+            try {
+                // Clear any cached connection states in smart manager
+                if (window.smartManager) {
+                    // Force reset proxy availability check
+                    smartManager.proxyAvailable = false;
+                    
+                    // Force re-detection of environment and proxy
+                    const environment = smartManager.detectEnvironment();
+                    await smartManager.checkProxyAvailability();
+                    
+                    logMessage('info', 'Connection reset: environment re-detected', {
+                        environment: environment,
+                        proxy: smartManager.proxyAvailable
+                    });
+                    
+                    // Force complete re-discovery
+                    await smartManager.discoverInstances();
+                    
+                    // 🔄 CRITICAL FIX: Sync discovery results back to taskpane metadata
+                    syncFromSmartManager();
+                    
+                    logMessage('info', 'Connection reset: instances re-discovered and synced');
+                }
+                
+                // Refresh UI
+                renderInstanceList();
+                updateOverviewBadges();
+                await refreshAssetListForActiveInstance();
+                
+                logMessage('info', 'Connection reset completed successfully');
+                
+            } catch (error) {
+                logMessage('error', 'Connection reset failed', { error: error.message });
+            }
         }
 
         /**
@@ -1569,18 +1639,36 @@
                 refreshBtn.addEventListener("click", handleRefreshStatus);
             }
 
+            // Reset Connections
+            const resetBtn = els.resetConnections();
+            if (resetBtn) {
+                resetBtn.addEventListener("click", handleResetConnections);
+            }
+
             // Check Summary
             const summaryBtn = els.checkSummary();
             if (summaryBtn) {
                 summaryBtn.addEventListener("click", async () => {
                     const activeInstance = getActiveInstanceWithMeta();
                     if (!activeInstance) {
-                        updateStatus("No active instance");
+                        updateSummary(els.summary(), { error: "No active instance selected" });
+                        logMessage('warn', 'Get Summary: No active instance');
                         return;
                     }
                     
-                    logMessage('info', 'Getting instance summary', { url: activeInstance.url });
-                    updateStatus("Checking...");
+                    const displayName = getDisplayName(activeInstance);
+                    logMessage('info', 'Getting comprehensive details for active instance', { 
+                        instance: displayName,
+                        url: activeInstance.url 
+                    });
+                    
+                    // Show loading state
+                    updateSummary(els.summary(), { 
+                        status: "Loading...",
+                        instance: displayName,
+                        url: activeInstance.url,
+                        timestamp: new Date().toISOString()
+                    });
                     
                     try {
                         const [ping, stats, assets] = await Promise.all([
@@ -1589,13 +1677,28 @@
                             foglampAssetsSmart().catch(e => ({ error: String(e) }))
                         ]);
                         
-                        const summary = { ping, statistics: stats, assets };
+                        const summary = { 
+                            instance: displayName,
+                            url: activeInstance.url,
+                            timestamp: new Date().toISOString(),
+                            ping, 
+                            statistics: stats, 
+                            assets 
+                        };
                         updateSummary(els.summary(), summary);
-                        logMessage('info', 'Summary retrieved successfully');
+                        logMessage('info', 'Instance details retrieved successfully', { instance: displayName });
                         
                     } catch (error) {
-                        updateSummary(els.summary(), { error: error.message });
-                        logMessage('error', 'Failed to get summary', { error: error.message });
+                        updateSummary(els.summary(), { 
+                            error: error.message,
+                            instance: displayName,
+                            url: activeInstance.url,
+                            timestamp: new Date().toISOString()
+                        });
+                        logMessage('error', 'Failed to get instance details', { 
+                            instance: displayName,
+                            error: error.message 
+                        });
                     }
                 });
             }
@@ -1934,6 +2037,76 @@
             return { header, rows };
         }
 
+        // 🔄 CRITICAL FIX: Bidirectional Status Sync Functions
+        // Prevents dual status system desync between taskpane metadata and smart manager
+        
+        /**
+         * Sync taskpane metadata with smart manager accessibility status
+         * Call this after smart manager discovery to ensure UI reflects smart manager state
+         */
+        function syncFromSmartManager() {
+            if (!window.smartManager) return;
+            
+            try {
+                const smartInstances = smartManager.availableInstances;
+                const registeredUrls = getInstances();
+                
+                let syncCount = 0;
+                
+                registeredUrls.forEach(url => {
+                    // Find matching smart manager instance by URL
+                    const smartInstance = Array.from(smartInstances.values()).find(inst => 
+                        inst.url === url || inst.name.includes(url)
+                    );
+                    
+                    if (smartInstance) {
+                        const currentMeta = getInstanceMeta(url);
+                        const smartStatus = smartInstance.accessible ? 'success' : 'failed';
+                        
+                        // Only sync if there's a meaningful difference
+                        if (currentMeta.lastStatus !== smartStatus) {
+                            updateInstanceMeta(url, {
+                                lastStatus: smartStatus,
+                                hostName: smartInstance.health || currentMeta.hostName,
+                                lastCheckedAt: new Date().toISOString(),
+                                lastError: smartInstance.accessible ? null : 'Not accessible via smart manager'
+                            });
+                            syncCount++;
+                        }
+                    }
+                });
+                
+                if (syncCount > 0) {
+                    logMessage('info', `Synced ${syncCount} instances from smart manager to taskpane metadata`);
+                    renderInstanceList();
+                    updateOverviewBadges();
+                }
+                
+            } catch (error) {
+                logMessage('warn', 'Failed to sync from smart manager', { error: error.message });
+            }
+        }
+        
+        /**
+         * Force smart manager to re-discover instances
+         * Call this after taskpane metadata updates to ensure smart manager reflects latest state
+         */
+        async function syncToSmartManager() {
+            if (!window.smartManager) return;
+            
+            try {
+                logMessage('info', 'Forcing smart manager re-discovery...');
+                await smartManager.discoverInstances();
+                logMessage('info', 'Smart manager synchronized successfully');
+                
+                // Also sync back to ensure consistency
+                syncFromSmartManager();
+                
+            } catch (error) {
+                logMessage('warn', 'Smart manager sync failed', { error: error.message });
+            }
+        }
+
         // Smart Connection Management with enhanced error handling
         async function initializeSmartConnections() {
             updateEnvironmentInfo('Detecting environment...');
@@ -1976,6 +2149,9 @@
                 const instances = await smartManager.discoverInstances();
                 console.log('✅ Instance discovery complete:', instances.length, 'instances found');
                 logMessage('info', `Instance discovery complete: ${instances.length}/${registeredInstances.length} accessible`);
+                
+                // 🔄 CRITICAL FIX: Sync smart manager discovery results back to taskpane metadata
+                syncFromSmartManager();
                 
                 updateConnectionSummary('Discovery complete');
                 updateConnectionStatus();

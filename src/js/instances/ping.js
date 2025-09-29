@@ -21,6 +21,30 @@ export class InstancePingManager {
         this.maxHistorySize = 10; // Keep last 10 ping results per instance
         this.retryDelay = 1000; // 1 second delay between retries
         this.maxRetries = 2; // Maximum automatic retries
+        this.uiUpdateFunctions = { renderList: null, updateBadges: null };
+    }
+
+    /**
+     * Initialize the ping manager
+     * Called during system startup
+     */
+    initialize() {
+        logMessage('info', 'Initializing ping manager');
+        
+        // Clear any existing timeouts
+        this.pingTimeouts.clear();
+        
+        logMessage('info', 'Ping manager initialized');
+    }
+
+    /**
+     * Set UI update functions for cross-module communication
+     * @param {Function} renderListFn - Function to render instance list
+     * @param {Function} updateBadgesFn - Function to update badges
+     */
+    setUIUpdateFunctions(renderListFn, updateBadgesFn) {
+        this.uiUpdateFunctions.renderList = renderListFn;
+        this.uiUpdateFunctions.updateBadges = updateBadgesFn;
     }
 
     /**

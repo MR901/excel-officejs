@@ -31,6 +31,20 @@ export class ExcelIntegrationManager {
     }
 
     /**
+     * Initialize the Excel integration manager
+     * Called during system startup
+     */
+    initialize() {
+        logMessage('info', 'Initializing Excel integration manager');
+        
+        // Check if Excel API is available
+        const excelAvailable = typeof Excel !== 'undefined' && typeof Excel.run === 'function';
+        logMessage('info', `Excel API available: ${excelAvailable}`);
+        
+        logMessage('info', 'Excel integration manager initialized');
+    }
+
+    /**
      * Ensure worksheet exists, create if needed
      * @param {Object} context - Excel context object
      * @param {string} name - Worksheet name

@@ -24,6 +24,19 @@ export class InstanceListManager {
     }
 
     /**
+     * Initialize the instance list manager
+     * Called during system startup to render initial instance list
+     */
+    initialize() {
+        logMessage('info', 'Initializing instance list manager');
+        
+        // Render the initial instance list
+        this.renderInstanceList();
+        
+        logMessage('info', 'Instance list manager initialized');
+    }
+
+    /**
      * Render enhanced instance list with metadata and actions
      * Creates a dynamic list with status dots, names, URLs, and action buttons
      */

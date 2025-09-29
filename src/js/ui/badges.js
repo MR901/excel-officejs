@@ -35,6 +35,19 @@ export class BadgeManager {
     }
 
     /**
+     * Initialize the badge manager
+     * Called during system startup to render initial badges
+     */
+    initialize() {
+        console.log('Badge manager initializing');
+        
+        // Render the initial badge status
+        this.updateOverviewBadges();
+        
+        console.log('Badge manager initialized');
+    }
+
+    /**
      * Update overview badges with current system status
      * Shows environment, connectivity, and proxy status
      */

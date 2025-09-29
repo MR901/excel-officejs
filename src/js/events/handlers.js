@@ -22,6 +22,19 @@ export class EventHandlerManager {
     }
 
     /**
+     * Initialize the event handler manager
+     * Called during system startup to setup event listeners
+     */
+    initialize() {
+        logMessage('info', 'Initializing event handler manager');
+        
+        // Setup all event listeners
+        this.setupEventListeners();
+        
+        logMessage('info', 'Event handler manager initialized');
+    }
+
+    /**
      * Handle adaptive Add button click with validation flow
      */
     async handleAddInstance() {

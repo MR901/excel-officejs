@@ -24,6 +24,22 @@ export class AssetManager {
     }
 
     /**
+     * Initialize the asset manager
+     * Called during system startup
+     */
+    initialize() {
+        logMessage('info', 'Initializing asset manager');
+        
+        // Setup asset input synchronization
+        this.syncAssetInputs();
+        
+        // Load assets for active instance if any
+        this.loadAssetsForActiveInstance();
+        
+        logMessage('info', 'Asset manager initialized');
+    }
+
+    /**
      * Load assets for the active instance
      * Populates the asset dropdown with available assets
      */

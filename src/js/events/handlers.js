@@ -5,6 +5,7 @@
 
 import { elements } from '../ui/elements.js';
 import { normalizeBaseUrl, addInstance, getInstances } from '../core/storage.js';
+import { INSTANCE_STATUS } from '../core/config.js';
 import { logMessage } from '../ui/console.js';
 
 /**
@@ -161,6 +162,15 @@ export class EventHandlerManager {
             // Update UI components
             this.updateUIAfterRefresh();
 
+            // Sync with smart manager to ensure consistent status
+            if (window.syncFromSmartManager) {
+                try {
+                    window.syncFromSmartManager();
+                } catch (error) {
+                    logMessage('warn', 'Smart manager sync failed after refresh', { error: error.message });
+                }
+            }
+
             // Refresh asset list for active instance
             if (window.refreshAssetListForActiveInstance) {
                 try {
@@ -223,6 +233,15 @@ export class EventHandlerManager {
 
             // Update UI components
             this.updateUIAfterReset();
+
+            // Sync with smart manager after reset
+            if (window.syncFromSmartManager) {
+                try {
+                    window.syncFromSmartManager();
+                } catch (error) {
+                    logMessage('warn', 'Smart manager sync failed after reset', { error: error.message });
+                }
+            }
 
             // Trigger a refresh status to validate all connections
             setTimeout(() => {

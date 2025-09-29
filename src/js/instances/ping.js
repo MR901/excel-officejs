@@ -397,17 +397,77 @@ export class InstancePingManager {
     }
 
     /**
-     * Sync with smart manager (bidirectional status sync)
+     * Sync taskpane metadata with smart manager accessibility status
+     * Call this after smart manager discovery to ensure UI reflects smart manager state
      */
     syncFromSmartManager() {
         if (!window.smartManager) return;
         
         try {
-            // This would sync status from smartManager back to our metadata
-            // Implementation depends on smartManager's accessible instances
-            logMessage('info', 'Syncing status with smart manager');
+            const smartInstances = window.smartManager.availableInstances;
+            const registeredUrls = window.getInstances ? window.getInstances() : [];
+            
+            let syncCount = 0;
+            
+            registeredUrls.forEach(url => {
+                // Find matching smart manager instance by URL
+                const smartInstance = Array.from(smartInstances.values()).find(inst => 
+                    inst.url === url || inst.name.includes(url)
+                );
+                
+                if (smartInstance) {
+                    const currentMeta = window.getInstanceMeta ? window.getInstanceMeta(url) : null;
+                    if (!currentMeta) return;
+                    
+                    const smartStatus = smartInstance.accessible ? 'success' : 'failed';
+                    
+                    // Only sync if there's a meaningful difference
+                    if (currentMeta.lastStatus !== smartStatus) {
+                        if (window.updateInstanceMeta) {
+                            window.updateInstanceMeta(url, {
+                                lastStatus: smartStatus,
+                                hostName: smartInstance.health || currentMeta.hostName,
+                                lastCheckedAt: new Date().toISOString(),
+                                lastError: smartInstance.accessible ? null : 'Not accessible via smart manager'
+                            });
+                            syncCount++;
+                        }
+                    }
+                }
+            });
+            
+            if (syncCount > 0) {
+                logMessage('info', `Synced ${syncCount} instances from smart manager to taskpane metadata`);
+                if (window.renderInstanceList) {
+                    window.renderInstanceList();
+                }
+                if (window.updateOverviewBadges) {
+                    window.updateOverviewBadges();
+                }
+            }
+            
         } catch (error) {
-            console.warn('Failed to sync with smart manager:', error);
+            logMessage('warn', 'Failed to sync from smart manager', { error: error.message });
+        }
+    }
+
+    /**
+     * Force smart manager to re-discover instances
+     * Call this after taskpane metadata updates to ensure smart manager reflects latest state
+     */
+    async syncToSmartManager() {
+        if (!window.smartManager) return;
+        
+        try {
+            logMessage('info', 'Forcing smart manager re-discovery...');
+            await window.smartManager.discoverInstances();
+            logMessage('info', 'Smart manager synchronized successfully');
+            
+            // Also sync back to ensure consistency
+            this.syncFromSmartManager();
+            
+        } catch (error) {
+            logMessage('warn', 'Smart manager sync failed', { error: error.message });
         }
     }
 
@@ -519,6 +579,8 @@ export const pingInstance = (url, options) => instancePingManager.pingInstance(u
 export const setInstanceActive = (url) => instancePingManager.setInstanceActive(url);
 export const getInstanceStatistics = (url) => instancePingManager.getInstanceStatistics(url);
 export const pingUrlForValidation = (url, timeout) => instancePingManager.pingUrlForValidation(url, timeout);
+export const syncFromSmartManager = () => instancePingManager.syncFromSmartManager();
+export const syncToSmartManager = () => instancePingManager.syncToSmartManager();
 
 // Export singleton as default
 export default instancePingManager;

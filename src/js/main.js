@@ -50,7 +50,9 @@ import {
     pingInstance,
     setInstanceActive,
     getInstanceStatistics,
-    pingUrlForValidation
+    pingUrlForValidation,
+    syncFromSmartManager,
+    syncToSmartManager
 } from './instances/ping.js';
 import { 
     excelIntegrationManager,
@@ -146,6 +148,8 @@ class FogLAMPDataLink {
         window.setInstanceActive = setInstanceActive;
         window.getInstanceStatistics = getInstanceStatistics;
         window.pingUrlForValidation = pingUrlForValidation;
+        window.syncFromSmartManager = syncFromSmartManager;
+        window.syncToSmartManager = syncToSmartManager;
         
         // Expose Excel integration functions globally for backward compatibility
         window.ensureWorksheet = ensureWorksheet;

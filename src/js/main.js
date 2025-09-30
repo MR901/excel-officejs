@@ -9,9 +9,6 @@ import { elements } from './ui/elements.js';
 import { getDisplayName, getColumnLetter, debounce, formatTimestamp, isValidUrl } from './core/utils.js';
 import { apiManager } from './core/api-manager.js';
 import { errorHandler } from './core/error-handler.js';
-// LEAN PHASE 3: Minimal custom functions and ribbon commands
-import './excel/custom-functions.js';
-import './excel/ribbon-commands.js';
 import { 
     instanceStorage,
     getInstances, 

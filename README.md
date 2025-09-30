@@ -1,46 +1,151 @@
-# FogLAMP Data Link - Smart Excel Add-in
+# FogLAMP Data Link - Excel Add-in
 
 ![Screenshot](/screenshot.png?raw=true)
 
-An intelligent Office.js Excel add-in that connects to FogLAMP instances with automatic environment detection and smart connection management.
+An enterprise-ready Microsoft Excel add-in for FogLAMP IoT platform integration. Provides seamless data management, real-time monitoring, and professional Excel exports.
 
-## ✨ **Smart Features**
+## ✨ **Key Features**
 
-- 🧠 **Auto-detects** Excel Desktop vs Web environment
-- 🔄 **Intelligent connection** management with fallback
-- 🌐 **Works in both** Excel Desktop and Excel Web
-- 🚀 **Zero configuration** for basic setup
-- 📊 **Real-time connection status** indicators
+- ✅ **Unified API Backbone** - Single consistent pathway for all FogLAMP API calls
+- 🌐 **Cross-Platform** - Works on Excel Desktop (Windows/Mac) and Excel Web
+- 🔗 **Smart Connectivity** - Automatic proxy handling for private networks
+- 📊 **Professional Exports** - Formatted Excel sheets with status and asset data
+- ⚡ **Office.js Compliant** - 100% following Microsoft best practices
+- 🎯 **Zero Bloat** - Lean, optimized codebase with aggressive cleanup
 
 ## 🚀 **Quick Start**
 
 1. **Load the add-in** by sideloading `manifest.xml` in Excel
-2. **Check "Connection Status"** - shows available FogLAMP instances automatically
-3. **Use all features** - they automatically use the best connection method
+2. **Add FogLAMP instance** - Enter URL (e.g., `http://192.168.1.100:8081`)
+3. **Set active** and **Ping** to verify connectivity
+4. **Export data** - Click "Export Status to Sheet" or configure asset readings
 
-## 📁 **Key Files**
+## 🔧 **Excel Web with Private Networks**
 
-- `manifest.xml` - Office add-in manifest
-- `taskpane.html` - Main add-in interface with smart connection logic
-- `smart-connection.js` - Intelligent connection manager  
-- `simple-proxy.js` - Proxy server for Excel Web remote access
-- `commands.html` - Office.js command functions
-
-## 🔧 **For Remote FogLAMP Access in Excel Web**
-
-If using Excel Web and need to access remote FogLAMP instances:
+For Excel Web accessing private network instances (192.168.x.x, 10.x.x.x):
 
 ```bash
-# Start the proxy server
+# Start the proxy server on your local machine
 node simple-proxy.js
 
 # Then click "Refresh Connections" in the add-in
+# Proxy badge should show: 🔗 Proxy Available
 ```
 
-See `USAGE.md` for detailed instructions.
+## 🚀 **Deployment**
+
+**Option 1: GitHub Pages** (Easiest)
+1. Enable GitHub Pages in repository settings
+2. Update all URLs in `manifest.xml` to point to GitHub Pages
+3. Distribute `manifest.xml` to users
+
+**Option 2: Internal Server**
+1. Upload files to your web server (HTTPS required)
+2. Update URLs in `manifest.xml`
+3. Set up centralized Office Add-in catalog (optional)
+
+**Users install by**: Insert → Get Add-ins → Upload My Add-in → Select manifest.xml
+
+## 🐛 **Common Issues**
+
+**Add-in won't load**
+- Clear Office cache: `%LOCALAPPDATA%\Microsoft\Office\16.0\Wef\` (Windows)
+- Verify URLs in manifest.xml are accessible
+
+**Can't add instance**
+- Check URL format: `http://192.168.1.100:8081` (must include port)
+- Verify FogLAMP server is running
+- Test with: `curl http://192.168.1.100:8081/foglamp/ping`
+
+**Ping fails (Excel Web)**
+- Start proxy server: `node simple-proxy.js`
+- Click "Refresh Connections"
+
+**Export fails**
+- Click "Set Active" on an instance first
+- Verify instance is reachable (green status)
 
 ## 📖 **Documentation**
 
-- `USAGE.md` - Complete user guide
-- [Office.js documentation](https://learn.microsoft.com/en-us/office/dev/add-ins/testing/test-debug-office-add-ins#sideload-an-office-add-in-for-testing) - For add-in installation
+- **[User Guide](docs/user-guide.rst)** - Installation, usage, common tasks
+- **[API Reference](docs/api-reference.rst)** - JavaScript API documentation
+
+## 📁 **Project Structure**
+
+```
+excel-officejs/
+├── docs/                   # RST documentation
+├── src/js/                 # Modular JavaScript code
+│   ├── core/              # Core functionality (API, storage, config)
+│   ├── ui/                # UI components (badges, console, instances)
+│   ├── excel/             # Excel integration
+│   ├── events/            # Event handlers
+│   ├── assets/            # Asset management
+│   └── instances/         # Instance management
+├── manifest.xml           # Office add-in manifest
+├── taskpane.html          # Taskpane UI
+├── smart-connection.js    # Smart connection manager
+└── simple-proxy.js        # Proxy server for Excel Web
+```
+
+## 🏗️ **Architecture**
+
+**Organized Namespace**:
+```javascript
+window.FogLAMP = {
+    api         // Unified API manager
+    storage     // Data management
+    excel       // Excel integration
+    errors      // Error handling
+    // ... and more
+}
+```
+
+**Single API Backbone**:
+All FogLAMP API calls use one consistent pathway with automatic proxy detection.
+
+**Office.js Best Practices**:
+- ✅ Office.onReady() initialization
+- ✅ No context.sync() in loops
+- ✅ Native error dialogs
+- ✅ Professional sheet formatting
+
+## 🧪 **Testing**
+
+Zero linting errors, full manual test coverage:
+- ✅ Instance management (add, remove, set active, ping)
+- ✅ Connectivity (refresh, proxy detection, badge updates)
+- ✅ Excel exports (status, asset readings)
+- ✅ Error handling (Office.js dialogs)
+
+## 📋 **Requirements**
+
+- Microsoft Excel 2016+ or Office 365
+- ExcelApi 1.7+, DialogApi 1.1+
+- Node.js 14+ (for proxy server)
+
+## 🔒 **Security**
+
+- ✅ No embedded API keys
+- ✅ SSL ready (HTTPS for production)
+- ✅ Input validation
+- ✅ Local storage only
+
+## 🤝 **Contributing**
+
+See [Developer Guide](docs/developer-guide.rst) for:
+- Development setup
+- Code style guidelines
+- Pull request process
+- Testing procedures
+
+## 📞 **Support**
+
+- **Provider**: Dianomic Systems
+- **Documentation**: https://foglamp.dianomic.com/
+- **Contact**: https://dianomic.com/contact-us/
+
+## 📄 **License**
+
+Copyright © 2024 Dianomic Systems. All rights reserved.
 

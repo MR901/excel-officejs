@@ -316,7 +316,7 @@ export class ExcelIntegrationManager {
                 return false;
             }
 
-            const { headers, rows } = this.flattenReadings(readings);
+            const { headers, rows } = this.buildTemplateReadings(readings, asset, exportParams.data.datapoint);
 
             await Excel.run(async (context) => {
                 const sheet = await this.ensureWorksheet(context, sheetName);
@@ -635,6 +635,77 @@ export class ExcelIntegrationManager {
         });
 
         return { headers, rows };
+    }
+
+    /**
+     * Build rows using the requested template
+     * Headers: Timestamp, Asset Name, Datapoint 1 Name, Datapoint 2 Name, Datapoint 3 Name
+     * Row: [mm:ss.t, asset, i%2, cycle(A/B/C), value]
+     * @param {Array} readings - readings array from API
+     * @param {string} asset - asset name to populate
+     * @param {string|null} datapoint - optional datapoint to select
+     * @returns {{headers: string[], rows: any[][]}}
+     */
+    buildTemplateReadings(readings, asset, datapoint = null) {
+        if (!Array.isArray(readings) || readings.length === 0) {
+            return { headers: ['No Data'], rows: [['No readings found']] };
+        }
+
+        const headers = ['Timestamp', 'Asset Name', 'Datapoint 1 Name', 'Datapoint 2 Name', 'Datapoint 3 Name'];
+
+        // Determine datapoint key
+        let dpKey = datapoint && String(datapoint).trim() !== '' ? datapoint.trim() : null;
+        if (!dpKey) {
+            const sample = readings.find(r => r && r.reading && typeof r.reading === 'object' && Object.keys(r.reading).length > 0);
+            dpKey = sample ? Object.keys(sample.reading)[0] : null;
+        }
+
+        const abc = ['A', 'B', 'C'];
+
+        const rows = readings.map((r, idx) => {
+            const ts = r.user_ts || r.timestamp || '';
+            const formattedTs = this.formatShortTimestamp(ts);
+            const dpValue = dpKey && r.reading ? (r.reading[dpKey] ?? '') : '';
+            const parity = idx % 2; // 0/1 alternating
+            const cycle = abc[idx % 3];
+            return [formattedTs, asset, parity, cycle, dpValue];
+        });
+
+        return { headers, rows };
+    }
+
+    /**
+     * Format timestamp like mm:ss.t (tenths)
+     * Accepts FogLAMP timestamps like "YYYY-MM-DD HH:MM:SS.micros" or ISO strings
+     * @param {string} ts
+     * @returns {string}
+     */
+    formatShortTimestamp(ts) {
+        if (!ts || typeof ts !== 'string') return String(ts || '');
+        // Try parse FogLAMP format first
+        const m = ts.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?/);
+        if (m) {
+            const mm = parseInt(m[5], 10) || 0; // minutes
+            const ss = parseInt(m[6], 10) || 0; // seconds
+            const frac = m[7] || '0';
+            // Convert fractional seconds (microseconds or milliseconds) to milliseconds
+            const micros = parseInt(frac.padEnd(6, '0').slice(0, 6), 10) || 0;
+            const ms = Math.round(micros / 1000);
+            const tenths = Math.round(ms / 100); // 0-10
+            const minuteStr = String(mm).padStart(2, '0');
+            const secondStr = String(ss).padStart(2, '0');
+            return `${minuteStr}:${secondStr}.${tenths}`;
+        }
+        // Fallback: try Date parsing
+        const d = new Date(ts);
+        if (!isNaN(d.getTime())) {
+            const minuteStr = String(d.getMinutes()).padStart(2, '0');
+            const secondStr = String(d.getSeconds()).padStart(2, '0');
+            const tenths = Math.round(d.getMilliseconds() / 100);
+            return `${minuteStr}:${secondStr}.${tenths}`;
+        }
+        // Last resort: return as-is
+        return ts;
     }
 
     /**

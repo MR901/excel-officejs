@@ -9,15 +9,9 @@
  * @returns {string} Safe display name
  */
 export function getDisplayName(instance) {
-    // Always prefer resolved hostName from FogLAMP; ignore editable name to avoid confusion
+    // Prefer resolved hostName; otherwise show full URL to avoid stale/incorrect hostnames
     if (instance?.hostName) return instance.hostName;
-    
-    try {
-        return new URL(instance.url).hostname;
-    } catch (e) {
-        // Fallback parsing for malformed URLs
-        return instance.url?.replace(/^https?:\/\//, '').split('/')[0] || 'Unknown Instance';
-    }
+    return instance?.url || 'Unknown Instance';
 }
 
 /**

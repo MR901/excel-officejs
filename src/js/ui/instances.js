@@ -166,7 +166,7 @@ export class InstanceListManager {
         const name = document.createElement('div');
         name.className = 'instance-name';
         
-        const displayName = instance.hostName || this.extractHostname(instance.url);
+        const displayName = instance.hostName || instance.url;
         name.textContent = displayName;
         name.title = displayName;
 
@@ -335,7 +335,7 @@ export class InstanceListManager {
         };
 
         const cancel = () => {
-            nameElement.textContent = currentName || this.extractHostname(url);
+            nameElement.textContent = currentName || url;
         };
 
         input.addEventListener('blur', save);

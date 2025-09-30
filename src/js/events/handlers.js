@@ -510,7 +510,8 @@ export class EventHandlerManager {
      * @param {Object} pingResult - Ping result with metadata
      */
     confirmAddInstance(url, pingResult) {
-        const hostName = pingResult.hostName || pingResult.data?.hostName || '';
+        // Avoid leaking/borrowing hostname from prior instances: if we don't have a hostname now, store URL
+        const hostName = (pingResult.hostName || pingResult.data?.hostName || '') || url;
         const status = pingResult.ok ? INSTANCE_STATUS.SUCCESS : INSTANCE_STATUS.FAILED;
 
         const added = addInstance(url, {

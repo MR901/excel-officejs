@@ -145,11 +145,15 @@ export class InstancePingManager {
 
             // Update metadata with failed ping
             if (updateUI) {
+                // Do not overwrite an existing hostName on failure; if none exists, set to URL
+                const current = getInstanceMeta ? getInstanceMeta(url) : null;
+                const safeHostName = current && current.hostName ? current.hostName : url;
                 updateInstanceMeta(url, {
                     lastStatus: INSTANCE_STATUS.FAILED,
                     lastCheckedAt: pingResult.timestamp,
                     lastError: errorMessage,
-                    lastPingMs: null // Clear ping time on failure
+                    lastPingMs: null, // Clear ping time on failure
+                    hostName: safeHostName
                 });
             }
 

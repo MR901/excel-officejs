@@ -517,42 +517,36 @@ if (typeof window !== 'undefined') {
     window.smartManager = smartManager;
     window.SmartFogLAMPManager = SmartFogLAMPManager; // Also expose the class
     
+    // Export global API functions for backward compatibility
+    window.foglampPingSmart = async () => await smartManager.foglampPing();
+    window.foglampStatisticsSmart = async () => await smartManager.foglampStatistics();
+    window.foglampAssetsSmart = async () => await smartManager.foglampAssets();
+    window.foglampAssetReadingsSmart = async (asset, datapoint, limit, skip, seconds, minutes, hours, previous) => {
+        const dp = (datapoint || "").trim();
+        const path = dp ? `/foglamp/asset/${asset}/${dp}` : `/foglamp/asset/${asset}`;
+        const params = new URLSearchParams();
+        
+        // Add parameters based on what's provided
+        if (limit != null && limit > 0) params.set("limit", String(limit));
+        if (skip != null && skip > 0) params.set("skip", String(skip));
+        if (seconds != null && seconds > 0) params.set("seconds", String(seconds));
+        if (minutes != null && minutes > 0) params.set("minutes", String(minutes));
+        if (hours != null && hours > 0) params.set("hours", String(hours));
+        if (previous != null && previous > 0) params.set("previous", String(previous));
+        
+        const endpoint = `${path}?${params.toString()}`;
+        const response = await smartManager.smartFetch(endpoint);
+        return response.json();
+    };
+    
     // Log availability for debugging
     console.log('📋 Smart Connection System Ready:');
     console.log('   - SmartFogLAMPManager class available:', typeof SmartFogLAMPManager !== 'undefined');
     console.log('   - smartManager instance available:', typeof smartManager !== 'undefined');
     console.log('   - Global window.smartManager set:', typeof window.smartManager !== 'undefined');
+    console.log('   - Global API functions exported');
 }
 
-async function foglampPingSmart() {
-    const response = await smartManager.smartFetch('/foglamp/ping');
-    return response.json();
-}
-
-async function foglampStatisticsSmart() {
-    const response = await smartManager.smartFetch('/foglamp/statistics');
-    return response.json();
-}
-
-async function foglampAssetsSmart() {
-    const response = await smartManager.smartFetch('/foglamp/asset');
-    return response.json();
-}
-
-async function foglampAssetReadingsSmart(asset, datapoint, limit, skip, seconds, minutes, hours, previous) {
-    const dp = (datapoint || "").trim();
-    const path = dp ? `/foglamp/asset/${asset}/${dp}` : `/foglamp/asset/${asset}`;
-    const params = new URLSearchParams();
-    
-    // Add parameters based on what's provided
-    if (limit != null && limit > 0) params.set("limit", String(limit));
-    if (skip != null && skip > 0) params.set("skip", String(skip));
-    if (seconds != null && seconds > 0) params.set("seconds", String(seconds));
-    if (minutes != null && minutes > 0) params.set("minutes", String(minutes));
-    if (hours != null && hours > 0) params.set("hours", String(hours));
-    if (previous != null && previous > 0) params.set("previous", String(previous));
-    
-    const endpoint = `${path}?${params.toString()}`;
-    const response = await smartManager.smartFetch(endpoint);
-    return response.json();
-}
+// Note: Global functions now exported in the window setup above
+// These legacy function declarations are kept for reference but the global
+// functions are defined in the window setup block to ensure proper initialization timing

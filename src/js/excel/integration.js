@@ -621,10 +621,26 @@ export class ExcelIntegrationManager {
      * @returns {Promise<Array>} Readings data
      */
     async fetchReadingsData(asset, params) {
-        if (window.foglampAssetReadingsSmart) {
+        // Build query parameters object for the API call
+        const queryParams = {};
+        
+        if (params.limit && params.limit > 0) queryParams.limit = params.limit;
+        if (params.skip && params.skip > 0) queryParams.skip = params.skip;
+        if (params.seconds && params.seconds > 0) queryParams.seconds = params.seconds;
+        if (params.minutes && params.minutes > 0) queryParams.minutes = params.minutes;
+        if (params.hours && params.hours > 0) queryParams.hours = params.hours;
+        if (params.previous && params.previous > 0) queryParams.previous = params.previous;
+        
+        const datapoint = params.datapoint && params.datapoint.trim() !== '' ? params.datapoint : null;
+        
+        // Use smart manager for readings
+        if (window.smartManager && window.smartManager.foglampReadings) {
+            return await window.smartManager.foglampReadings(asset, datapoint, queryParams);
+        } else if (window.foglampAssetReadingsSmart) {
+            // Fallback to global function
             return await window.foglampAssetReadingsSmart(
                 asset,
-                params.datapoint || undefined,
+                datapoint,
                 params.limit,
                 params.skip,
                 params.seconds > 0 ? params.seconds : undefined,
@@ -632,8 +648,6 @@ export class ExcelIntegrationManager {
                 params.hours > 0 ? params.hours : undefined,
                 params.previous > 0 ? params.previous : undefined
             );
-        } else if (window.smartManager) {
-            return await window.smartManager.foglampAssetReadings(asset, params);
         } else {
             throw new Error('Asset readings function not available');
         }

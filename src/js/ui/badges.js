@@ -52,6 +52,11 @@ export class BadgeManager {
      * Shows environment, connectivity, and proxy status
      */
     updateOverviewBadges() {
+        // Ensure smart manager is detected/initialized
+        if (window.smartManager && window.smartManager.environment === 'unknown') {
+            window.smartManager.detectEnvironment();
+        }
+        
         const environment = window.smartManager?.environment || 'unknown';
         const proxy = window.smartManager?.proxyAvailable || false;
         const instances = getEnhancedInstances();

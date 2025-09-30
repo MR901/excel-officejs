@@ -78,6 +78,32 @@ class FogLAMPDataLink {
         window.getActiveInstanceWithMeta = getActiveInstanceWithMeta; // Used by unified API calls
         // window.FogLAMP is the main organized namespace (created above)
         
+        // ✅ CRITICAL FIX: Export essential functions for event handlers and smart-connection.js
+        window.getInstances = getInstances;
+        window.getActiveInstance = getActiveInstance;
+        window.setActiveInstance = setActiveInstance;
+        window.removeInstance = removeInstance;
+        window.addInstance = addInstance;
+        window.getInstanceMeta = getInstanceMeta;
+        window.updateInstanceMeta = updateInstanceMeta;
+        window.getDisplayName = getDisplayName;
+        window.pingInstance = (url, options) => this.ping.pingInstance(url, options);
+        window.pingUrlForValidation = (url, timeout) => this.ping.pingUrlForValidation(url, timeout);
+        window.syncFromSmartManager = () => this.ping.syncFromSmartManager();
+        window.syncToSmartManager = () => this.ping.syncToSmartManager();
+        window.handleExportStatus = () => this.excel.handleExportStatus();
+        window.handleExportReadings = () => this.excel.handleExportReadings();
+        window.handleUpdateConnections = () => this.events.handleUpdateConnections();
+        window.loadAssetsForActiveInstance = () => this.assets.loadAssetsForActiveInstance();
+        window.refreshAssetListForActiveInstance = () => this.assets.refreshAssetListForActiveInstance();
+        window.clearConsole = () => this.console.clearConsole();
+        
+        // Export smart connection API methods for backward compatibility
+        window.foglampPingSmart = async () => await window.smartManager.foglampPing();
+        window.foglampStatisticsSmart = async () => await window.smartManager.foglampStatistics();
+        window.foglampAssetsSmart = async () => await window.smartManager.foglampAssets();
+        window.foglampAssetReadingsSmart = async (...args) => await window.smartManager.foglampReadings(...args);
+        
         // ✅ MIGRATION GUIDE: Functions moved to organized namespaces
         // OLD GLOBALS (removed)     → NEW ORGANIZED PATHS
         // window.getInstances       → window.FogLAMP.storage.getInstances()
@@ -173,7 +199,11 @@ class FogLAMPDataLink {
             console.log('🔄 Performing initial system refresh...');
             
             // Small delay to ensure UI elements are fully rendered
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            // Always update UI first to show current state
+            this.badges.updateOverviewBadges();
+            this.instances.renderInstanceList();
             
             // Check if we have any instances to refresh
             const instances = getInstances();
@@ -181,20 +211,13 @@ class FogLAMPDataLink {
                 console.log(`🔄 Auto-refreshing ${instances.length} instances on startup...`);
                 
                 // Perform the same comprehensive refresh as "Refresh Connections" button
-                if (window.handleUpdateConnections) {
-                    await window.handleUpdateConnections();
-                    console.log('✅ Initial system refresh completed successfully');
-                } else {
-                    console.warn('⚠️ handleUpdateConnections not available, falling back to basic UI update');
-                    // Fallback: just update UI elements
-                    window.FogLAMP.badges.updateOverviewBadges();
-                    window.FogLAMP.instances.renderInstanceList();
-                }
+                await this.events.handleUpdateConnections();
+                console.log('✅ Initial system refresh completed successfully');
+                
+                // Load assets for active instance
+                await this.assets.loadAssetsForActiveInstance();
             } else {
-                console.log('ℹ️ No instances found, updating UI to show empty state');
-                // Update UI to show proper empty state
-                window.FogLAMP.badges.updateOverviewBadges();
-                window.FogLAMP.instances.renderInstanceList();
+                console.log('ℹ️ No instances found, UI shows empty state');
             }
             
         } catch (error) {
@@ -203,8 +226,8 @@ class FogLAMPDataLink {
             
             // Ensure basic UI update happens even if refresh fails
             try {
-                window.FogLAMP.badges.updateOverviewBadges();
-                window.FogLAMP.instances.renderInstanceList();
+                this.badges.updateOverviewBadges();
+                this.instances.renderInstanceList();
             } catch (fallbackError) {
                 console.error('❌ Fallback UI update also failed:', fallbackError);
             }

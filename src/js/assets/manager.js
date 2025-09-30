@@ -132,7 +132,30 @@ export class AssetManager {
      * @returns {Promise<Array>} Array of asset names
      */
     async fetchAssetsFromInstance(instanceUrl) {
-        return await window.FogLAMP.api.assets();
+        try {
+            // Use unified API if available
+            if (window.FogLAMP && window.FogLAMP.api && window.FogLAMP.api.assets) {
+                return await window.FogLAMP.api.assets();
+            }
+            
+            // Fallback to smart manager
+            if (window.smartManager && window.smartManager.foglampAssets) {
+                return await window.smartManager.foglampAssets();
+            }
+            
+            // Fallback to global function
+            if (window.foglampAssetsSmart) {
+                return await window.foglampAssetsSmart();
+            }
+            
+            throw new Error('No asset fetch method available');
+        } catch (error) {
+            logMessage('error', 'Failed to fetch assets', { 
+                instance: instanceUrl, 
+                error: error.message 
+            });
+            throw error;
+        }
     }
 
 

@@ -456,6 +456,57 @@ class SmartFogLAMPManager {
                 : `${missingCount} instances may be offline`
         };
     }
+
+    // ✅ FIX: Add missing API methods that existing code expects
+    /**
+     * FogLAMP Ping API - proxy-aware method
+     * @returns {Promise<Object>} Ping response data
+     */
+    async foglampPing() {
+        const response = await this.smartFetch('/foglamp/ping');
+        return response.json();
+    }
+
+    /**
+     * FogLAMP Statistics API - proxy-aware method
+     * @returns {Promise<Object>} Statistics response data
+     */
+    async foglampStatistics() {
+        const response = await this.smartFetch('/foglamp/statistics');
+        return response.json();
+    }
+
+    /**
+     * FogLAMP Assets API - proxy-aware method  
+     * @returns {Promise<Array>} Assets response data
+     */
+    async foglampAssets() {
+        const response = await this.smartFetch('/foglamp/asset');
+        return response.json();
+    }
+
+    /**
+     * FogLAMP Asset Readings API - proxy-aware method
+     * @param {string} asset - Asset name
+     * @param {string} datapoint - Optional datapoint name
+     * @param {Object} params - Query parameters
+     * @returns {Promise<Array>} Readings response data
+     */
+    async foglampReadings(asset, datapoint = null, params = {}) {
+        const path = datapoint ? `/foglamp/asset/${asset}/${datapoint}` : `/foglamp/asset/${asset}`;
+        
+        // Build query string
+        const queryParams = new URLSearchParams();
+        Object.keys(params).forEach(key => {
+            if (params[key] != null && params[key] !== '') {
+                queryParams.set(key, String(params[key]));
+            }
+        });
+        
+        const fullPath = queryParams.toString() ? `${path}?${queryParams.toString()}` : path;
+        const response = await this.smartFetch(fullPath);
+        return response.json();
+    }
 }
 
 // Enhanced API functions using smart manager

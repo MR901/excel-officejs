@@ -7,6 +7,11 @@
 import { STORAGE_KEYS, ENHANCED_STORAGE_KEYS, INSTANCE_STATUS, DEFAULTS } from './core/config.js';
 import { elements } from './ui/elements.js';
 import { getDisplayName, getColumnLetter, debounce, formatTimestamp, isValidUrl } from './core/utils.js';
+import { apiManager } from './core/api-manager.js';
+import { errorHandler } from './core/error-handler.js';
+// LEAN PHASE 3: Minimal custom functions and ribbon commands
+import './excel/custom-functions.js';
+import './excel/ribbon-commands.js';
 import { 
     instanceStorage,
     getInstances, 
@@ -22,70 +27,24 @@ import {
     getActiveInstanceWithMeta,
     normalizeBaseUrl
 } from './core/storage.js';
-import { 
-    consoleManager,
-    logMessage,
-    clearConsole,
-    updateSummary,
-    setConsoleHeight
-} from './ui/console.js';
-import { 
-    badgeManager,
-    updateOverviewBadges,
-    updateConnectionStatus
-} from './ui/badges.js';
-import { 
-    instanceListManager,
-    renderInstanceList,
-    editInstanceName
-} from './ui/instances.js';
-import { 
-    assetManager,
-    loadAssetsForActiveInstance,
-    refreshAssetListForActiveInstance,
-    syncAssetInputs
-} from './assets/manager.js';
-import { 
-    instancePingManager,
-    pingInstance,
-    setInstanceActive,
-    getInstanceStatistics,
-    pingUrlForValidation,
-    syncFromSmartManager,
-    syncToSmartManager
-} from './instances/ping.js';
-import { 
-    excelIntegrationManager,
-    ensureWorksheet,
-    handleExportStatus,
-    handleExportReadings
-} from './excel/integration.js';
-import { 
-    eventHandlerManager,
-    setupEventListeners,
-    handleAddInstance,
-    handleUpdateConnections
-} from './events/handlers.js';
+// STREAMLINED IMPORTS: Only import managers and essential functions
+import { consoleManager, logMessage } from './ui/console.js';
+import { badgeManager } from './ui/badges.js';
+import { instanceListManager } from './ui/instances.js';
+import { assetManager } from './assets/manager.js';
+import { instancePingManager } from './instances/ping.js';
+import { excelIntegrationManager } from './excel/integration.js';
+import { eventHandlerManager, handleUpdateConnections } from './events/handlers.js';
 
 /**
  * Main application class to coordinate initialization
  */
 class FogLAMPDataLink {
     constructor() {
-        this.config = {
-            STORAGE_KEYS,
-            ENHANCED_STORAGE_KEYS, 
-            INSTANCE_STATUS,
-            DEFAULTS
-        };
+        // STREAMLINED CONSTRUCTOR: Core modules only  
+        this.config = { STORAGE_KEYS, ENHANCED_STORAGE_KEYS, INSTANCE_STATUS, DEFAULTS };
         this.elements = elements;
-        this.utils = {
-            getDisplayName,
-            getColumnLetter, 
-            debounce,
-            formatTimestamp,
-            isValidUrl
-        };
+        this.utils = { getDisplayName, getColumnLetter, debounce, formatTimestamp, isValidUrl };
         this.storage = instanceStorage;
         this.console = consoleManager;
         this.badges = badgeManager;
@@ -94,6 +53,8 @@ class FogLAMPDataLink {
         this.ping = instancePingManager;
         this.excel = excelIntegrationManager;
         this.events = eventHandlerManager;
+        this.api = apiManager; // ✅ Unified API manager - single backbone
+        this.errors = errorHandler; // ✅ Office.js compliant error handling
         
         // Make all modules available globally during transition
         window.FogLAMP = {
@@ -108,61 +69,31 @@ class FogLAMPDataLink {
             ping: this.ping,
             excel: this.excel,
             events: this.events,
+            api: this.api,  // ✅ Unified API manager - single backbone
+            errors: this.errors, // ✅ Office.js compliant error handling
             app: this  // Expose the app instance for manual initialization
         };
         
-        // Expose individual storage functions globally for backward compatibility
-        window.getInstances = getInstances;
-        window.addInstance = addInstance;
-        window.removeInstance = removeInstance;
-        window.getActiveInstance = getActiveInstance;
-        window.setActiveInstance = setActiveInstance;
-        window.getInstanceMetadata = getInstanceMetadata;
-        window.saveInstanceMetadata = saveInstanceMetadata;
-        window.getInstanceMeta = getInstanceMeta;
-        window.updateInstanceMeta = updateInstanceMeta;
-        window.getEnhancedInstances = getEnhancedInstances;
-        window.getActiveInstanceWithMeta = getActiveInstanceWithMeta;
-        window.normalizeBaseUrl = normalizeBaseUrl;
-        window.saveInstances = (instances) => instanceStorage.saveInstances(instances);
+        // ✅ PHASE 3 AGGRESSIVE TRIM: Only 3 truly essential globals (reduced from 28+ to 3!)
+        // Everything else MUST use window.FogLAMP.* organized namespace
         
-        // Expose utility functions globally for backward compatibility
-        window.getDisplayName = getDisplayName;
+        window.logMessage = logMessage;                              // Used everywhere for logging  
+        window.getActiveInstanceWithMeta = getActiveInstanceWithMeta; // Used by unified API calls
+        // window.FogLAMP is the main organized namespace (created above)
         
-        // Expose console functions globally for backward compatibility  
-        window.logMessage = logMessage;
-        window.clearConsole = clearConsole;
-        window.updateSummary = updateSummary;
-        window.setConsoleHeight = setConsoleHeight;
-        
-        // Expose UI management functions globally for backward compatibility
-        window.updateOverviewBadges = updateOverviewBadges;
-        window.updateConnectionStatus = updateConnectionStatus;
-        window.renderInstanceList = renderInstanceList;
-        window.editInstanceName = editInstanceName;
-        
-        // Expose asset management functions globally for backward compatibility
-        window.loadAssetsForActiveInstance = loadAssetsForActiveInstance;
-        window.refreshAssetListForActiveInstance = refreshAssetListForActiveInstance;
-        window.syncAssetInputs = syncAssetInputs;
-        
-        // Expose instance ping functions globally for backward compatibility
-        window.pingInstance = pingInstance;
-        window.setInstanceActive = setInstanceActive;
-        window.getInstanceStatistics = getInstanceStatistics;
-        window.pingUrlForValidation = pingUrlForValidation;
-        window.syncFromSmartManager = syncFromSmartManager;
-        window.syncToSmartManager = syncToSmartManager;
-        
-        // Expose Excel integration functions globally for backward compatibility
-        window.ensureWorksheet = ensureWorksheet;
-        window.handleExportStatus = handleExportStatus;
-        window.handleExportReadings = handleExportReadings;
-        
-        // Expose event handler functions globally for backward compatibility
-        window.setupEventListeners = setupEventListeners;
-        window.handleAddInstance = handleAddInstance;
-        window.handleUpdateConnections = handleUpdateConnections;
+        // ✅ MIGRATION GUIDE: Functions moved to organized namespaces
+        // OLD GLOBALS (removed)     → NEW ORGANIZED PATHS
+        // window.getInstances       → window.FogLAMP.storage.getInstances()
+        // window.getActiveInstance  → window.FogLAMP.storage.getActiveInstance()
+        // window.updateOverviewBadges → window.FogLAMP.badges.updateOverviewBadges()
+        // window.renderInstanceList → window.FogLAMP.instances.renderInstanceList()
+        // window.addInstance        → window.FogLAMP.storage.addInstance()
+        // window.removeInstance     → window.FogLAMP.storage.removeInstance()
+        // window.setActiveInstance  → window.FogLAMP.storage.setActiveInstance()
+        // window.getDisplayName     → window.FogLAMP.utils.getDisplayName()
+        // window.pingInstance       → window.FogLAMP.ping.pingInstance()
+        // window.handleExportStatus → window.FogLAMP.excel.handleExportStatus()
+        // ... and many more via organized namespaces
     }
 
     /**
@@ -176,6 +107,10 @@ class FogLAMPDataLink {
             });
 
             // Initialize all systems in order
+            // ✅ Initialize unified API manager first for cross-platform compatibility
+            await this.api.initialize();
+            console.log('✅ Unified API Manager initialized for platform:', this.api.detectPlatform());
+            
             this.console.initialize();
             this.badges.initialize();
             this.instances.initialize();
@@ -190,37 +125,9 @@ class FogLAMPDataLink {
             // Perform initial refresh of connections and overview
             await this.performInitialRefresh();
 
-            console.log('✅ FogLAMP DataLink modules loaded successfully');
-            console.log('📋 Available Modules:', {
-                config: Object.keys(this.config),
-                elements: 'elements object with selectors',
-                utils: Object.keys(this.utils),
-                storage: 'instanceStorage class with methods',
-                console: 'consoleManager class with logging',
-                badges: 'badgeManager for status display',
-                instances: 'instanceListManager for UI management',
-                assets: 'assetManager for asset handling',
-                ping: 'instancePingManager for connectivity',
-                excel: 'excelIntegrationManager for exports',
-                events: 'eventHandlerManager for interactions'
-            });
-            console.log('🗄️ Storage functions globally available:', {
-                getInstances: typeof getInstances,
-                addInstance: typeof addInstance,
-                removeInstance: typeof removeInstance,
-                getActiveInstance: typeof getActiveInstance
-            });
-            console.log('📝 UI functions globally available:', {
-                updateOverviewBadges: typeof updateOverviewBadges,
-                renderInstanceList: typeof renderInstanceList,
-                loadAssetsForActiveInstance: typeof loadAssetsForActiveInstance,
-                pingInstance: typeof pingInstance
-            });
-            console.log('📊 Excel integration available:', {
-                handleExportStatus: typeof handleExportStatus,
-                handleExportReadings: typeof handleExportReadings,
-                excelApiDetected: typeof Excel !== 'undefined'
-            });
+            console.log('✅ FogLAMP DataLink initialized - All modules ready');
+            console.log('📋 Organized namespace: window.FogLAMP.*');
+            console.log('📊 Excel integration:', typeof Excel !== 'undefined' ? 'Available' : 'Not detected');
 
         } catch (error) {
             console.error('❌ FogLAMP DataLink initialization failed:', error);
@@ -237,20 +144,20 @@ class FogLAMPDataLink {
             () => this.badges.updateOverviewBadges()
         );
         
-        // Set up asset manager cache clearing when instances change
-        const originalAddInstance = window.addInstance;
-        const originalRemoveInstance = window.removeInstance;
+        // Set up asset manager cache clearing when instances change via organized namespace
+        const originalAddInstance = this.storage.addInstance;
+        const originalRemoveInstance = this.storage.removeInstance;
         
-        window.addInstance = (...args) => {
-            const result = originalAddInstance.apply(this, args);
+        this.storage.addInstance = (...args) => {
+            const result = originalAddInstance.apply(this.storage, args);
             if (result) {
                 this.assets.clearAssetCache(); // Clear cache when instances change
             }
             return result;
         };
         
-        window.removeInstance = (...args) => {
-            const result = originalRemoveInstance.apply(this, args);
+        this.storage.removeInstance = (...args) => {
+            const result = originalRemoveInstance.apply(this.storage, args);
             if (result) {
                 this.assets.clearAssetCache(); // Clear cache when instances change
             }
@@ -283,22 +190,14 @@ class FogLAMPDataLink {
                 } else {
                     console.warn('⚠️ handleUpdateConnections not available, falling back to basic UI update');
                     // Fallback: just update UI elements
-                    if (window.updateOverviewBadges) {
-                        window.updateOverviewBadges();
-                    }
-                    if (window.renderInstanceList) {
-                        window.renderInstanceList();
-                    }
+                    window.FogLAMP.badges.updateOverviewBadges();
+                    window.FogLAMP.instances.renderInstanceList();
                 }
             } else {
                 console.log('ℹ️ No instances found, updating UI to show empty state');
                 // Update UI to show proper empty state
-                if (window.updateOverviewBadges) {
-                    window.updateOverviewBadges();
-                }
-                if (window.renderInstanceList) {
-                    window.renderInstanceList();
-                }
+                window.FogLAMP.badges.updateOverviewBadges();
+                window.FogLAMP.instances.renderInstanceList();
             }
             
         } catch (error) {
@@ -307,12 +206,8 @@ class FogLAMPDataLink {
             
             // Ensure basic UI update happens even if refresh fails
             try {
-                if (window.updateOverviewBadges) {
-                    window.updateOverviewBadges();
-                }
-                if (window.renderInstanceList) {
-                    window.renderInstanceList();
-                }
+                window.FogLAMP.badges.updateOverviewBadges();
+                window.FogLAMP.instances.renderInstanceList();
             } catch (fallbackError) {
                 console.error('❌ Fallback UI update also failed:', fallbackError);
             }

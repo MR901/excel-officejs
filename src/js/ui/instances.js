@@ -357,9 +357,7 @@ export class InstanceListManager {
             this.renderInstanceList();
             
             // Update badges if available
-            if (window.updateOverviewBadges) {
-                window.updateOverviewBadges();
-            }
+            window.FogLAMP.badges.updateOverviewBadges();
             
             // Load assets for the new active instance
             if (window.loadAssetsForActiveInstance) {
@@ -385,9 +383,7 @@ export class InstanceListManager {
             this.renderInstanceList();
             
             // Update badges if available (ping status affects connectivity badge)
-            if (window.updateOverviewBadges) {
-                window.updateOverviewBadges();
-            }
+            window.FogLAMP.badges.updateOverviewBadges();
         } catch (error) {
             logMessage('error', 'Ping failed', { url, error: error.message });
         }
@@ -420,10 +416,8 @@ export class InstanceListManager {
                         logMessage('info', 'Instance removed successfully', { url, name: displayName });
                         this.renderInstanceList();
                         
-                        // Update badges if available
-                        if (window.updateOverviewBadges) {
-                            window.updateOverviewBadges();
-                        }
+                        // Update badges
+                        window.FogLAMP.badges.updateOverviewBadges();
                     } else {
                         logMessage('warn', 'Failed to remove instance', { url });
                     }
@@ -703,162 +697,194 @@ export class InstanceListManager {
     }
 
     /**
-     * Show Office.js compatible confirmation dialog
+     * Show Office.js native confirmation dialog
      * @param {string} title Dialog title
      * @param {string} message Dialog message  
      * @param {Function} onConfirm Callback for confirmation
      * @param {Function} onCancel Callback for cancellation
      */
     showConfirmDialog(title, message, onConfirm, onCancel) {
-        // Create modal overlay
-        const overlay = document.createElement('div');
-        overlay.className = 'confirm-overlay';
-        overlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
+        // Check if Office.js dialog API is available
+        if (typeof Office !== 'undefined' && Office.context && Office.context.ui && Office.context.ui.displayDialogAsync) {
+            this.showOfficeDialog(title, message, onConfirm, onCancel);
+        } else {
+            // Fallback to simple browser confirm for non-Office environments
+            this.showBrowserConfirm(title, message, onConfirm, onCancel);
+        }
+    }
+
+    /**
+     * Show Office.js native dialog
+     * @param {string} title Dialog title
+     * @param {string} message Dialog message  
+     * @param {Function} onConfirm Callback for confirmation
+     * @param {Function} onCancel Callback for cancellation
+     */
+    showOfficeDialog(title, message, onConfirm, onCancel) {
+        try {
+            // Create dialog HTML content
+            const dialogHtml = this.createConfirmDialogHtml(title, message);
+            
+            // Create a data URL for the dialog content
+            const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(dialogHtml)}`;
+            
+            // Office.js dialog options
+            const dialogOptions = {
+                width: 400,
+                height: 250,
+                displayInIFrame: true // Better compatibility
+            };
+            
+            Office.context.ui.displayDialogAsync(dataUrl, dialogOptions, (asyncResult) => {
+                if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
+                    const dialog = asyncResult.value;
+                    
+                    // Handle messages from dialog
+                    dialog.addEventHandler(Office.EventType.DialogMessageReceived, (arg) => {
+                        const result = arg.message;
+                        dialog.close();
+                        
+                        if (result === 'confirm' && onConfirm) {
+                            onConfirm();
+                        } else if (result === 'cancel' && onCancel) {
+                            onCancel();
+                        }
+                    });
+                    
+                    // Handle dialog closed without selection
+                    dialog.addEventHandler(Office.EventType.DialogEventReceived, (arg) => {
+                        if (arg.error === 12006) { // Dialog was closed by user
+                            if (onCancel) onCancel();
+                        }
+                    });
+                    
+                } else {
+                    // Error opening dialog, fallback to browser confirm
+                    console.warn('Office.js dialog failed, using browser confirm:', asyncResult.error);
+                    this.showBrowserConfirm(title, message, onConfirm, onCancel);
+                }
+            });
+            
+        } catch (error) {
+            console.warn('Office.js dialog error, using browser confirm:', error);
+            this.showBrowserConfirm(title, message, onConfirm, onCancel);
+        }
+    }
+
+    /**
+     * Create HTML content for Office.js dialog
+     * @param {string} title Dialog title
+     * @param {string} message Dialog message
+     * @returns {string} HTML content
+     */
+    createConfirmDialogHtml(title, message) {
+        return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Confirm Action</title>
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+    <style>
+        body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        `;
-
-        // Create dialog box
-        const dialog = document.createElement('div');
-        dialog.className = 'confirm-dialog';
-        dialog.style.cssText = `
-            background: white;
-            border-radius: 4px;
+            margin: 0;
             padding: 20px;
-            max-width: 400px;
-            width: 90%;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            text-align: left;
-        `;
-
-        // Create title
-        const titleEl = document.createElement('h3');
-        titleEl.textContent = title;
-        titleEl.style.cssText = `
-            margin: 0 0 12px 0;
-            color: #323130;
+            background: white;
+        }
+        .dialog-header {
             font-size: 16px;
             font-weight: 600;
-        `;
-
-        // Create message
-        const messageEl = document.createElement('p');
-        messageEl.textContent = message;
-        messageEl.style.cssText = `
-            margin: 0 0 20px 0;
-            color: #605e5c;
+            color: #323130;
+            margin-bottom: 12px;
+        }
+        .dialog-message {
             font-size: 14px;
+            color: #605e5c;
             line-height: 1.4;
+            margin-bottom: 20px;
             white-space: pre-line;
-        `;
-
-        // Create button container
-        const buttonContainer = document.createElement('div');
-        buttonContainer.style.cssText = `
+        }
+        .dialog-buttons {
             display: flex;
             gap: 10px;
             justify-content: flex-end;
-        `;
-
-        // Create Cancel button
-        const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.style.cssText = `
+        }
+        .dialog-button {
             padding: 8px 16px;
-            border: 1px solid #8a8886;
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 14px;
+            border: 1px solid;
+        }
+        .cancel-button {
             background: white;
             color: #323130;
-            border-radius: 2px;
-            cursor: pointer;
-            font-size: 14px;
-        `;
-
-        // Create Remove button
-        const confirmBtn = document.createElement('button');
-        confirmBtn.textContent = 'Remove';
-        confirmBtn.style.cssText = `
-            padding: 8px 16px;
-            border: 1px solid #d13438;
+            border-color: #8a8886;
+        }
+        .cancel-button:hover {
+            background: #f3f2f1;
+        }
+        .confirm-button {
             background: #d13438;
             color: white;
-            border-radius: 2px;
-            cursor: pointer;
-            font-size: 14px;
+            border-color: #d13438;
             font-weight: 600;
-        `;
-
-        // Add hover effects
-        cancelBtn.addEventListener('mouseenter', () => {
-            cancelBtn.style.background = '#f3f2f1';
+        }
+        .confirm-button:hover {
+            background: #b92b2b;
+        }
+    </style>
+</head>
+<body>
+    <div class="dialog-header">${title}</div>
+    <div class="dialog-message">${message}</div>
+    <div class="dialog-buttons">
+        <button class="dialog-button cancel-button" onclick="sendResponse('cancel')">Cancel</button>
+        <button class="dialog-button confirm-button" onclick="sendResponse('confirm')">Remove</button>
+    </div>
+    
+    <script>
+        Office.onReady(() => {
+            // Focus the cancel button by default (safer)
+            document.querySelector('.cancel-button').focus();
+            
+            // Handle Escape key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    sendResponse('cancel');
+                }
+            });
         });
-        cancelBtn.addEventListener('mouseleave', () => {
-            cancelBtn.style.background = 'white';
-        });
-
-        confirmBtn.addEventListener('mouseenter', () => {
-            confirmBtn.style.background = '#b92b2b';
-        });
-        confirmBtn.addEventListener('mouseleave', () => {
-            confirmBtn.style.background = '#d13438';
-        });
-
-        // Add event handlers
-        const closeDialog = () => {
-            if (overlay.parentNode) {
-                overlay.parentNode.removeChild(overlay);
+        
+        function sendResponse(response) {
+            if (typeof Office !== 'undefined' && Office.context && Office.context.ui) {
+                Office.context.ui.messageParent(response);
+            } else {
+                // Fallback for non-Office environments
+                window.close();
             }
-        };
+        }
+    </script>
+</body>
+</html>`;
+    }
 
-        cancelBtn.addEventListener('click', () => {
-            closeDialog();
-            if (onCancel) onCancel();
-        });
-
-        confirmBtn.addEventListener('click', () => {
-            closeDialog();
-            if (onConfirm) onConfirm();
-        });
-
-        // Close on overlay click
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) {
-                closeDialog();
-                if (onCancel) onCancel();
-            }
-        });
-
-        // Close on Escape key
-        const escapeHandler = (e) => {
-            if (e.key === 'Escape') {
-                document.removeEventListener('keydown', escapeHandler);
-                closeDialog();
-                if (onCancel) onCancel();
-            }
-        };
-        document.addEventListener('keydown', escapeHandler);
-
-        // Assemble dialog
-        buttonContainer.appendChild(cancelBtn);
-        buttonContainer.appendChild(confirmBtn);
-        dialog.appendChild(titleEl);
-        dialog.appendChild(messageEl);
-        dialog.appendChild(buttonContainer);
-        overlay.appendChild(dialog);
-
-        // Add to page
-        document.body.appendChild(overlay);
-
-        // Focus the cancel button by default (safer)
-        cancelBtn.focus();
+    /**
+     * Fallback browser confirmation dialog
+     * @param {string} title Dialog title
+     * @param {string} message Dialog message  
+     * @param {Function} onConfirm Callback for confirmation
+     * @param {Function} onCancel Callback for cancellation
+     */
+    showBrowserConfirm(title, message, onConfirm, onCancel) {
+        const fullMessage = `${title}\n\n${message}`;
+        const confirmed = confirm(fullMessage);
+        
+        if (confirmed && onConfirm) {
+            onConfirm();
+        } else if (!confirmed && onCancel) {
+            onCancel();
+        }
     }
 }
 

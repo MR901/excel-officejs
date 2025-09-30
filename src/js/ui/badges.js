@@ -101,10 +101,10 @@ export class BadgeManager {
         // Update Active Instance Display
         const activeDisplay = elements.activeInstanceDisplay();
         if (activeDisplay) {
-            const activeInstance = instances.find(i => window.getActiveInstance && window.getActiveInstance() === i.url);
+            const activeInstance = instances.find(i => window.FogLAMP.storage.getActiveInstance() === i.url);
             
             if (activeInstance) {
-                const displayName = window.getDisplayName ? window.getDisplayName(activeInstance) : activeInstance.url;
+                const displayName = window.FogLAMP.utils.getDisplayName(activeInstance);
                 const statusIcon = this.getStatusIcon(activeInstance.lastStatus);
                 activeDisplay.innerHTML = `
                     <div class="active-instance">

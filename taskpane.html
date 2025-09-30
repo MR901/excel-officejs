@@ -155,401 +155,49 @@
         </div>
     </div>
     <script>
-        // Initialize Office.js
-        Office.onReady(function (info) { });
-
-        // Add a click event listener to the button
-        document.getElementById("run-btn") && document.getElementById("run-btn").addEventListener("click", run);
-
-        // Based on 'Basic API call' sample from ScriptLab
-        async function run() {
-            await Excel.run(async (context) => {
-                const range = context.workbook.getSelectedRange();
-                range.format.fill.color = "yellow";
-                range.load("address");
-
-                await context.sync();
-
-                const sheets = context.workbook.worksheets;
-                sheets.getItem("Sheet1").getRange("A1").values = [["The selected address was " + range.address + "."]];
-            });
-        }
+        // Basic Office.js initialization for legacy compatibility
+        // Main initialization is handled by src/js/main.js modular system
+        Office.onReady(function (info) {
+            console.log('📋 Office.js ready in taskpane.html - delegating to modular system');
+        });
 
         // =============================
-        // FogLAMP DataLink prototype JS
+        // FogLAMP DataLink Modular System
         // =============================
 
-        // Configuration constants (loaded from modules)
-        // Available as: window.FogLAMP.config.STORAGE_KEYS, etc.
-        const STORAGE_KEYS = window.FogLAMP?.config.STORAGE_KEYS || {
-            INSTANCES: "FOGLAMP_INSTANCES",
-            ACTIVE: "FOGLAMP_ACTIVE"
-        };
-
-        // UI element selectors (loaded from modules)  
-        // Available as: window.FogLAMP.elements
-        const els = window.FogLAMP?.elements || {
-            // Fallback element selectors if modules not loaded yet
-            environmentBadge: () => document.getElementById("environment-badge"),
-            connectivityBadge: () => document.getElementById("connectivity-badge"),
-            proxyBadge: () => document.getElementById("proxy-badge"),
-            activeInstanceDisplay: () => document.getElementById("active-instance-display"),
-            updateConnections: () => document.getElementById("update-connections"),
-            proxyGuidance: () => document.getElementById("proxy-guidance"),
-            baseUrl: () => document.getElementById("fl-base-url"),
-            register: () => document.getElementById("fl-register"),
-            addFeedback: () => document.getElementById("fl-add-feedback"),
-            addActions: () => document.getElementById("fl-add-actions"),
-            addConfirm: () => document.getElementById("fl-add-confirm"),
-            addSkip: () => document.getElementById("fl-add-skip"),
-            instancesContainer: () => document.getElementById("instances-container"),
-            emptyInstances: () => document.getElementById("empty-instances"),
-            checkSummary: () => document.getElementById("fl-check-summary"),
-            summary: () => document.getElementById("fl-summary"),
-            writeStatus: () => document.getElementById("fl-write-status"),
-            assetSelect: () => document.getElementById("fl-asset-select"),
-            asset: () => document.getElementById("fl-asset"),
-            datapoint: () => document.getElementById("fl-datapoint"),
-            limit: () => document.getElementById("fl-limit"),
-            skip: () => document.getElementById("fl-skip"),
-            seconds: () => document.getElementById("fl-seconds"),
-            minutes: () => document.getElementById("fl-minutes"),
-            hours: () => document.getElementById("fl-hours"),
-            previous: () => document.getElementById("fl-previous"),
-            getReadings: () => document.getElementById("fl-get-readings"),
-            status: () => document.getElementById("fl-status")
-        };
-
-        // Enhanced Instance Storage System
-        // =================================
-        // This system manages both URL list (for backward compatibility) 
-        // and rich metadata for each instance
-
-        // Utility functions (loaded from modules)
-        // Available as: window.FogLAMP.utils.getDisplayName, etc.
-        const getDisplayName = window.FogLAMP?.utils.getDisplayName || function(instance) {
-            // Fallback implementation
-            if (instance?.name) return instance.name;
-            if (instance?.hostName) return instance.hostName;
-            try {
-                return new URL(instance.url).hostname;
-            } catch (e) {
-                return instance.url?.replace(/^https?:\/\//, '').split('/')[0] || 'Unknown Instance';
-            }
-        };
-
-        // Enhanced storage keys (loaded from modules)
-        const ENHANCED_STORAGE_KEYS = window.FogLAMP?.config.ENHANCED_STORAGE_KEYS || {
-            ...STORAGE_KEYS,
-            INSTANCE_METADATA: 'foglamp_instance_metadata'
-        };
-
-        // Status constants (loaded from modules)  
-        const INSTANCE_STATUS = window.FogLAMP?.config.INSTANCE_STATUS || {
-            SUCCESS: 'success',
-            FAILED: 'failed', 
-            CHECKING: 'checking',
-            UNKNOWN: 'unknown'
-        };
-
-        /**
-         * Instance metadata structure:
-         * {
-         *   url: string,
-         *   name?: string,           // Optional user-provided name
-         *   hostName?: string,       // From FogLAMP /ping response
-         *   lastStatus: 'success'|'failed'|'checking'|'unknown',
-         *   lastPingMs?: number,     // Response time in milliseconds
-         *   lastCheckedAt?: string,  // ISO timestamp
-         *   addedAt: string,         // ISO timestamp when first added
-         *   lastError?: string       // Last error message if any
-         * }
-         */
-
-        // ===============================================
-        // Instance Storage Functions (Extracted to Module)
-        // ===============================================
-        // These functions are now loaded from src/js/core/storage.js
-        // Available as: window.FogLAMP.storage.getInstanceMetadata(), window.getInstanceMetadata(), etc.
-        // Functions loaded via src/js/main.js: 
-        // - getInstanceMetadata, saveInstanceMetadata
-        // - getInstanceMeta, updateInstanceMeta  
-        // - getEnhancedInstances, getInstances
-        // - addInstance, removeInstance
-        // - getActiveInstance, setActiveInstance
-        // - getActiveInstanceWithMeta, normalizeBaseUrl
-
-        // Legacy Storage Functions (Now in Module)
-        // =======================================
-        // All storage functions moved to src/js/core/storage.js
-        // Available globally via window.getInstances(), window.addInstance(), etc.
-        // See main.js for complete list of exposed functions
-
-        // Global function exposure now handled by src/js/main.js
-        // Functions available via window.getInstances(), window.addInstance(), etc.
-
-        // =============================================
-        // UI Management Functions (Now in Modules)
-        // =============================================
-        // Badge management: ui/badges.js → window.updateOverviewBadges()
-        // Instance list: ui/instances.js → window.renderInstanceList()
-        // Asset management: assets/manager.js → window.loadAssetsForActiveInstance()
-        // Ping management: instances/ping.js → window.pingInstance()
-        // Excel integration: excel/integration.js → window.handleExportStatus()
-        // Event handling: events/handlers.js → window.setupEventListeners()
-
-        // renderInstanceList() now available from ui/instances.js
-
-        // editInstanceName() now available from ui/instances.js
-
-        // Console & Logging Functions (Now in Module)
-        // Available globally via window.logMessage(), window.clearConsole(), etc.
-
-        // Instance Management Functions
-        // ============================
-
-        /**
-         * Ping specific instance and update its status
-         * @param {string} url - Instance URL to ping
-         */
-        // async function pingInstance() moved to modular system
-
-        /**
-         * Set instance as active
-         * @param {string} url - Instance URL to set as active
-         */
-        // async function setInstanceActive() moved to modular system
-
-        /**
-         * Remove instance with confirmation
-         * @param {string} url - Instance URL to remove
-         */
-        // function removeInstanceWithConfirm() moved to modular system
-
-        /**
-         * Get statistics for specific instance with proper error handling
-         * @param {string} url - Instance URL
-         */
-        // async function getInstanceStatistics() moved to modular system
-
-        /**
-         * Enhanced asset readings API call with all parameters
-         * @param {Object} params - API parameters object
-         * @returns {Promise} Asset readings data
-         */
-        // foglampAssetReadingsSmartWithParams() moved to excel/integration.js
-
-        // Adaptive Add Flow Implementation
-        // ===============================
-
-        /**
-         * Show add feedback message
-         * @param {string} message - Feedback message
-         * @param {string} type - Message type: 'success', 'warning', 'error'
-         */
-        // function showAddFeedback() moved to modular system
-
-        /**
-         * Hide add feedback
-         */
-        // function hideAddFeedback() moved to modular system
-
-        /**
-         * Show/hide add action buttons
-         * @param {boolean} show - Whether to show buttons
-         * @param {string} url - URL being added
-         * @param {Object} pingResult - Ping result data
-         */
-        // function toggleAddActions() moved to modular system
-
-        /**
-         * Confirm and add instance with metadata
-         * @param {string} url - Instance URL
-         * @param {Object} pingResult - Ping result data
-         */
-        // async function confirmAddInstance() moved to modular system
-
-        /**
-         * Ping URL with timeout for validation
-         * @param {string} url - URL to ping
-         * @param {number} timeoutMs - Timeout in milliseconds
-         * @returns {Promise} Ping result
-         */
-        // async function pingUrlForValidation() moved to modular system
-
-        // Asset Management Functions
-        // =========================
-
-        /**
-         * Load assets for the active instance
-         */
-        // async function loadAssetsForActiveInstance() moved to modular system
-
-        /**
-         * Refresh asset list for active instance - used by Refresh Status button
-         * Includes proper error handling and logging
-         */
-        // async function refreshAssetListForActiveInstance() moved to modular system
-
-        /**
-         * Enhanced asset input synchronization with debouncing to prevent race conditions
-         */
-        // function syncAssetInputs() moved to modular system
-
-        // Legacy Helper Functions (Updated for new UI)
-        // ===========================================
-
-        /**
-         * Update status in console (legacy compatibility)
-         * @param {string} message - Status message
-         * @param {Object} data - Optional data object
-         */
-        // function updateStatus() moved to modular system
-
-        /**
-         * Legacy populate list function (updated for new UI)
-         */
-        // async function populateList() moved to modular system
-
-        // Event Handlers
-        // ==============
-
-        /**
-         * Handle adaptive Add button click
-         */
-        // async function handleAddInstance() moved to modular system
-
-        /**
-         * Handle refresh status button click
-         */
-        // async function handleRefreshStatus() moved to modular system
-
-        /**
-         * Handle reset connections - force complete connection state reset
-         */
-        // async function handleResetConnections() moved to modular system
-
-        /**
-         * Setup all event listeners for the enhanced UI
-         */
-        // function setupEventListeners() moved to modular system
-
-        /**
-         * Initialize UI components and load initial data
-         */
-        // initializeUI() now handled by modular system in main.js
-
-        // normalizeBaseUrl now available from src/js/core/storage.js
-
-        // function updateStatus() moved to modular system
-
-        // updateSummary now available from src/js/ui/console.js
-
-        // async function populateList() moved to modular system
-
-        // Note: FogLAMP API calls now use smart connection manager (smart-connection.js)
-        // Functions: foglampPingSmart, foglampStatisticsSmart, foglampAssetsSmart, foglampAssetReadingsSmart
-
-        // Excel helpers
-        // async function ensureWorksheet() moved to modular system
-
-        // function writeTable() moved to modular system
-
-        // function toKeyValueRows() moved to modular system
-
-        // function stringifyCell() moved to modular system
-
-        // function flattenAssets() moved to modular system
-
-        // function flattenStatistics() moved to modular system
-
-        // function flattenReadings() moved to modular system
-
-        // 🔄 CRITICAL FIX: Bidirectional Status Sync Functions
-        // Prevents dual status system desync between taskpane metadata and smart manager
+        // All functionality has been moved to the modular system in src/js/main.js
+        // This includes:
+        // - Configuration constants
+        // - Storage management 
+        // - UI management
+        // - Event handling
+        // - Asset management
+        // - Excel integration
+        // - Instance management
+        // - Console & logging
         
-        /**
-         * Sync taskpane metadata with smart manager accessibility status
-         * Call this after smart manager discovery to ensure UI reflects smart manager state
-         */
-        // function syncFromSmartManager() moved to modular system
+        // Functions are now available globally via:
+        // window.FogLAMP.* - Access to all modules
+        // window.getInstances(), window.addInstance(), etc. - Direct access to commonly used functions
+
+        // DOM initialization is now handled by src/js/main.js
+        // The modular system will initialize automatically when loaded
         
-        /**
-         * Force smart manager to re-discover instances
-         * Call this after taskpane metadata updates to ensure smart manager reflects latest state
-         */
-        // async function syncToSmartManager() moved to modular system
-
-        // Smart Connection Management with enhanced error handling
-        // initializeSmartConnections() now handled by modular system in main.js
-
-        // Legacy functions - replaced by modular badge system
-        // updateEnvironmentInfo and updateConnectionSummary are now handled by 
-        // badgeManager.updateOverviewBadges() in src/js/ui/badges.js
-
-        // function updateConnectionStatus() moved to modular system
-
-        // async function populateSmartInstances() moved to modular system
-
-        // Enhanced Event Wiring & Initialization
-        document.addEventListener("DOMContentLoaded", async () => {
-            try {
-                // Wait for modules to load (main.js handles full initialization)
-                let retries = 0;
-                const maxRetries = 50; // 5 seconds max wait
-                
-                while (!window.FogLAMP && retries < maxRetries) {
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    retries++;
-                }
-                
-                if (!window.FogLAMP) {
-                    console.error('❌ Failed to load FogLAMP modules - initialization aborted');
-                    return;
-                }
-                
-                console.log('✅ FogLAMP modular system ready - taskpane.html initialization complete');
-                console.log('📋 Available modules:', Object.keys(window.FogLAMP));
-                
-                // Ensure all components are properly initialized
-                if (window.FogLAMP.app && window.FogLAMP.app.initialize) {
-                    console.log('🚀 Triggering manual app initialization...');
-                    await window.FogLAMP.app.initialize();
-                }
-                
-                // Force instance list rendering if not already done
-                if (window.renderInstanceList) {
-                    console.log('🔄 Force rendering instance list...');
-                    window.renderInstanceList();
-                }
-                
-                // Update badges to show current status
-                if (window.updateOverviewBadges) {
-                    console.log('🔄 Force updating overview badges...');
-                    window.updateOverviewBadges();
-                }
-                
-                // Add debugging helper
-                window.debugInstanceList = function() {
-                    console.log('🐞 INSTANCE LIST DEBUG:');
-                    console.log('- getInstances():', window.getInstances ? window.getInstances() : 'NOT AVAILABLE');
-                    console.log('- getEnhancedInstances():', window.getEnhancedInstances ? window.getEnhancedInstances() : 'NOT AVAILABLE');
-                    console.log('- getActiveInstance():', window.getActiveInstance ? window.getActiveInstance() : 'NOT AVAILABLE');
+        // Optional: Add debugging helper for development
+        document.addEventListener("DOMContentLoaded", () => {
+            // Add debugging helper for development
+            window.debugFogLAMP = function() {
+                console.log('🐞 FOGLAMP SYSTEM DEBUG:');
+                console.log('- FogLAMP modules loaded:', !!window.FogLAMP);
+                console.log('- Available modules:', window.FogLAMP ? Object.keys(window.FogLAMP) : 'NOT LOADED');
+                console.log('- Office.js available:', typeof Office !== 'undefined');
+                console.log('- Excel API available:', typeof Excel !== 'undefined');
+                console.log('- getInstances function:', typeof window.getInstances);
                     console.log('- renderInstanceList function:', typeof window.renderInstanceList);
-                    console.log('- instances container element:', document.getElementById('instances-container'));
-                    console.log('- empty state element:', document.getElementById('empty-instances'));
-                    
-                    // Try to force render
-                    if (window.renderInstanceList) {
-                        console.log('🔄 Attempting to force render...');
-                        window.renderInstanceList();
-                    }
-                };
-                console.log('🐞 Debug helper available: Call debugInstanceList() in console');
-                
-            } catch (error) {
-                console.error('❌ taskpane.html initialization failed:', error);
-            }
+                console.log('- Current instances:', window.getInstances ? window.getInstances() : 'NOT AVAILABLE');
+                console.log('- Active instance:', window.getActiveInstance ? window.getActiveInstance() : 'NOT AVAILABLE');
+            };
+            console.log('🐞 Debug helper available: Call debugFogLAMP() in console');
         });
 
     </script>

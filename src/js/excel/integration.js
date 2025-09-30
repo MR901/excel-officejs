@@ -591,45 +591,27 @@ export class ExcelIntegrationManager {
     }
 
     /**
-     * Fetch ping data for status export
+     * Fetch ping data - STREAMLINED: Single API path only
      * @returns {Promise<Object>} Ping data
      */
     async fetchPingData() {
-        if (window.foglampPingSmart) {
-            return await window.foglampPingSmart();
-        } else if (window.smartManager) {
-            return await window.smartManager.foglampPing();
-        } else {
-            throw new Error('Ping function not available');
-        }
+        return await window.FogLAMP.api.ping();
     }
 
     /**
-     * Fetch statistics data for status export
+     * Fetch statistics data - STREAMLINED: Single API path only
      * @returns {Promise<Object>} Statistics data
      */
     async fetchStatisticsData() {
-        if (window.foglampStatisticsSmart) {
-            return await window.foglampStatisticsSmart();
-        } else if (window.smartManager) {
-            return await window.smartManager.foglampStatistics();
-        } else {
-            throw new Error('Statistics function not available');
-        }
+        return await window.FogLAMP.api.statistics();
     }
 
     /**
-     * Fetch assets data for status export
+     * Fetch assets data - STREAMLINED: Single API path only
      * @returns {Promise<Array>} Assets data
      */
     async fetchAssetsData() {
-        if (window.foglampAssetsSmart) {
-            return await window.foglampAssetsSmart();
-        } else if (window.smartManager) {
-            return await window.smartManager.foglampAssets();
-        } else {
-            throw new Error('Assets function not available');
-        }
+        return await window.FogLAMP.api.assets();
     }
 
     /**

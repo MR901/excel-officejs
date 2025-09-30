@@ -639,12 +639,8 @@ export class EventHandlerManager {
      * Update UI components after refresh
      */
     updateUIAfterRefresh() {
-        if (window.renderInstanceList) {
-            window.renderInstanceList();
-        }
-        if (window.updateOverviewBadges) {
-            window.updateOverviewBadges();
-        }
+        window.FogLAMP.instances.renderInstanceList();
+        window.FogLAMP.badges.updateOverviewBadges();
     }
 
     /**
@@ -703,42 +699,24 @@ export class EventHandlerManager {
     }
 
     /**
-     * Fetch ping data (shared with Excel integration)
+     * Fetch ping data - STREAMLINED: Single API path only
      */
     async fetchPingData() {
-        if (window.foglampPingSmart) {
-            return await window.foglampPingSmart();
-        } else if (window.smartManager) {
-            return await window.smartManager.foglampPing();
-        } else {
-            throw new Error('Ping function not available');
-        }
+        return await window.FogLAMP.api.ping();
     }
 
     /**
-     * Fetch statistics data (shared with Excel integration)
+     * Fetch statistics data - STREAMLINED: Single API path only
      */
     async fetchStatisticsData() {
-        if (window.foglampStatisticsSmart) {
-            return await window.foglampStatisticsSmart();
-        } else if (window.smartManager) {
-            return await window.smartManager.foglampStatistics();
-        } else {
-            throw new Error('Statistics function not available');
-        }
+        return await window.FogLAMP.api.statistics();
     }
 
     /**
-     * Fetch assets data (shared with Excel integration)
+     * Fetch assets data - STREAMLINED: Single API path only
      */
     async fetchAssetsData() {
-        if (window.foglampAssetsSmart) {
-            return await window.foglampAssetsSmart();
-        } else if (window.smartManager) {
-            return await window.smartManager.foglampAssets();
-        } else {
-            throw new Error('Assets function not available');
-        }
+        return await window.FogLAMP.api.assets();
     }
 
     /**

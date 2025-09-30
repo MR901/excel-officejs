@@ -73,113 +73,47 @@ export class InstancePingManager {
         logMessage('info', 'Ping started', { url, timeout, retry: retryCount });
 
         try {
-            // Use smart manager for proxy-aware ping if available
-            let response, data;
+            // ✅ UNIFIED API: Use single backbone for consistent proxy handling
+            let data;
             
-            if (window.foglampPingSmart) {
-                // Use smart manager ping (proxy-aware)
-                logMessage('info', 'Using smart manager for ping', { url });
-                data = await window.foglampPingSmart();
-                const endTime = performance.now();
-                const pingMs = Math.round(endTime - startTime);
-                
-                // Create response-like object for consistency
-                response = { ok: true };
-                
-                const pingResult = {
-                    url,
-                    success: true,
-                    pingMs: smartPingMs,
-                    hostName: data.hostName || data.serviceName || '',
-                    timestamp: new Date().toISOString(),
-                    data
-                };
+            logMessage('info', 'Using unified API for ping', { url });
+            
+            // STREAMLINED: Single API path only
+            data = await window.FogLAMP.api.ping();
+            
+            const endTime = performance.now();
+            const pingMs = Math.round(endTime - startTime);
+            
+            const pingResult = {
+                url,
+                success: true,
+                pingMs,
+                hostName: data.hostName || data.serviceName || '',
+                timestamp: new Date().toISOString(),
+                data
+            };
 
-                // Update metadata with successful ping
-                if (updateUI) {
-                    updateInstanceMeta(url, {
-                        lastStatus: INSTANCE_STATUS.SUCCESS,
-                        lastPingMs: smartPingMs,
-                        lastCheckedAt: pingResult.timestamp,
-                        hostName: pingResult.hostName,
-                        lastError: null // Clear any previous error
-                    });
-                }
-
-                this.updatePingHistory(url, pingResult);
-                this.renderInstanceList();
-
-                logMessage('info', 'Ping successful via smart manager', {
-                    url, 
-                    pingMs: pingResult.pingMs,
-                    hostName: pingResult.hostName
+            // Update metadata with successful ping
+            if (updateUI) {
+                updateInstanceMeta(url, {
+                    lastStatus: INSTANCE_STATUS.SUCCESS,
+                    lastPingMs: pingMs,
+                    lastCheckedAt: pingResult.timestamp,
+                    hostName: pingResult.hostName,
+                    lastError: null // Clear any previous error
                 });
-
-                return pingResult;
-                
-            } else {
-                // Fallback to direct fetch (may not work with proxy)
-                logMessage('info', 'Using direct fetch for ping (smart manager unavailable)', { url });
-                
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), timeout);
-                this.pingTimeouts.set(url, timeoutId);
-                
-                response = await fetch(`${url}/foglamp/ping`, {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
-                    signal: controller.signal
-                });
-
-                this.pingTimeouts.delete(url);
-                const endTime = performance.now();
-                const pingMs = Math.round(endTime - startTime);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                
-                data = await response.json();
-                
-                const directEndTime = performance.now();
-                const directPingMs = Math.round(directEndTime - startTime);
-                
-                const hostName = data.hostName || data.serviceName || '';
-                
-                const pingResult = {
-                    url,
-                    success: true,
-                    pingMs: directPingMs,
-                    hostName,
-                    timestamp: new Date().toISOString(),
-                    data
-                };
-
-                // Update metadata with successful ping
-                if (updateUI) {
-                    updateInstanceMeta(url, {
-                        lastStatus: INSTANCE_STATUS.SUCCESS,
-                        lastPingMs: directPingMs,
-                        lastCheckedAt: pingResult.timestamp,
-                        hostName: hostName,
-                        lastError: null // Clear any previous error
-                    });
-                }
-                
-                this.updatePingHistory(url, pingResult);
-                this.renderInstanceList();
-
-                logMessage('info', 'Ping successful via direct fetch', {
-                    url, 
-                    pingMs: pingResult.pingMs,
-                    hostName: pingResult.hostName
-                });
-
-                return pingResult;
             }
+
+            this.updatePingHistory(url, pingResult);
+            this.renderInstanceList();
+
+            logMessage('info', 'Ping successful', {
+                url, 
+                pingMs: pingResult.pingMs,
+                hostName: pingResult.hostName
+            });
+
+            return pingResult;
 
         } catch (error) {
             this.pingTimeouts.delete(url);
@@ -482,7 +416,7 @@ export class InstancePingManager {
         
         try {
             const smartInstances = window.smartManager.availableInstances;
-            const registeredUrls = window.getInstances ? window.getInstances() : [];
+            const registeredUrls = window.FogLAMP.storage.getInstances();
             
             let syncCount = 0;
             
@@ -515,12 +449,8 @@ export class InstancePingManager {
             
             if (syncCount > 0) {
                 logMessage('info', `Synced ${syncCount} instances from smart manager to taskpane metadata`);
-                if (window.renderInstanceList) {
-                    window.renderInstanceList();
-                }
-                if (window.updateOverviewBadges) {
-                    window.updateOverviewBadges();
-                }
+                window.FogLAMP.instances.renderInstanceList();
+                window.FogLAMP.badges.updateOverviewBadges();
             }
             
         } catch (error) {

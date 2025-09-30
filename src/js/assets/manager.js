@@ -127,44 +127,14 @@ export class AssetManager {
     }
 
     /**
-     * Fetch assets from FogLAMP instance
-     * @param {string} instanceUrl - Instance URL to fetch assets from
+     * Fetch assets from FogLAMP instance - STREAMLINED: Single API path only
+     * @param {string} instanceUrl - Instance URL (unused, kept for API compatibility)
      * @returns {Promise<Array>} Array of asset names
      */
     async fetchAssetsFromInstance(instanceUrl) {
-        // Use smart manager if available, otherwise fallback to direct API call
-        if (window.smartManager && window.foglampAssetsSmart) {
-            return await window.foglampAssetsSmart();
-        } else if (window.foglampAssets) {
-            return await window.foglampAssets();
-        } else {
-            // Direct API call as fallback
-            return await this.directAssetFetch(instanceUrl);
-        }
+        return await window.FogLAMP.api.assets();
     }
 
-    /**
-     * Direct asset fetch via REST API
-     * @param {string} instanceUrl - Instance URL
-     * @returns {Promise<Array>} Array of asset names
-     */
-    async directAssetFetch(instanceUrl) {
-        const response = await fetch(`${instanceUrl}/foglamp/asset`, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            },
-            signal: AbortSignal.timeout(10000) // 10 second timeout
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const assets = await response.json();
-        return Array.isArray(assets) ? assets : [];
-    }
 
     /**
      * Populate asset select dropdown with assets

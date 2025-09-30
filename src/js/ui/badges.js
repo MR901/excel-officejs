@@ -127,8 +127,10 @@ export class BadgeManager {
             }
         }
         
-        // Control proxy guidance visibility
-        this.updateProxyGuidance(environment, proxy, instances.length > 0 && reachableCount === 0);
+        // Control proxy guidance visibility - only when private/local instances are unreachable in web without proxy
+        const hasUnreachablePrivate = instances.some(i => this.isPrivateUrl(i.url) && i.lastStatus === 'failed');
+        const anyPrivate = instances.some(i => this.isPrivateUrl(i.url));
+        this.updateProxyGuidance(environment, proxy, hasUnreachablePrivate, anyPrivate);
     }
 
     /**
@@ -142,11 +144,19 @@ export class BadgeManager {
             const status = window.smartManager.getConnectionStatus();
             this.updateConnectionSummary(status.message);
             
-            // Show proxy guidance based on status
+            // Show proxy guidance only when relevant to private/local access issues
             const hasProxySuggestion = status.suggestion && status.suggestion.includes('proxy');
             const proxyGuidance = elements.proxyGuidance();
             if (proxyGuidance) {
-                proxyGuidance.style.display = hasProxySuggestion ? 'block' : 'none';
+                const instances = getEnhancedInstances();
+                const env = window.smartManager?.environment || 'unknown';
+                const proxy = window.smartManager?.proxyAvailable || false;
+                const hasUnreachablePrivate = instances.some(i => this.isPrivateUrl(i.url) && i.lastStatus === 'failed');
+                const show = hasProxySuggestion && env === 'web' && !proxy && hasUnreachablePrivate;
+                proxyGuidance.style.display = show ? 'block' : 'none';
+                if (!show) {
+                    proxyGuidance.innerHTML = '';
+                }
             }
             
             // Update header styling based on status
@@ -163,12 +173,12 @@ export class BadgeManager {
      * @param {boolean} proxy - Proxy availability
      * @param {boolean} hasUnreachableInstances - Whether there are unreachable instances
      */
-    updateProxyGuidance(environment, proxy, hasUnreachableInstances) {
+    updateProxyGuidance(environment, proxy, hasUnreachablePrivateInstances, anyPrivateInstances) {
         const proxyGuidance = elements.proxyGuidance();
         if (!proxyGuidance) return;
         
-        // Show guidance if in web environment with unreachable instances and no proxy
-        const shouldShow = environment === 'web' && hasUnreachableInstances && !proxy;
+        // Show guidance only if in web environment, proxy is off, and there are unreachable private/local instances
+        const shouldShow = environment === 'web' && !proxy && !!hasUnreachablePrivateInstances && !!anyPrivateInstances;
         proxyGuidance.style.display = shouldShow ? 'block' : 'none';
         
         if (shouldShow) {
@@ -181,6 +191,34 @@ export class BadgeManager {
                     <p><small>Or use Excel Desktop for direct access.</small></p>
                 </div>
             `;
+        } else {
+            proxyGuidance.innerHTML = '';
+        }
+    }
+
+    /**
+     * Determine if a URL points to a private/local network host
+     * @param {string} url
+     * @returns {boolean}
+     */
+    isPrivateUrl(url) {
+        try {
+            const host = new URL(url).hostname.toLowerCase();
+            // Localhost and loopback
+            if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return true;
+            // IPv4 private ranges
+            if (host.startsWith('10.')) return true;
+            if (host.startsWith('192.168.')) return true;
+            if (host.startsWith('172.')) {
+                const parts = host.split('.');
+                const second = parseInt(parts[1], 10);
+                if (second >= 16 && second <= 31) return true;
+            }
+            // IPv6 Unique Local Address fc00::/7
+            if (host.startsWith('fc') || host.startsWith('fd')) return true;
+            return false;
+        } catch (_e) {
+            return false;
         }
     }
 

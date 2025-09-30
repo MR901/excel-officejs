@@ -257,7 +257,11 @@ export class ExcelIntegrationManager {
             const NA = 'NA';
 
             const boolStr = (v) => (v === true ? 'TRUE' : v === false ? 'FALSE' : NA);
-            const arrStr = (arr) => Array.isArray(arr) && arr.length > 0 ? `- ${arr.join('\n- ')}` : NA;
+            const arrStr = (arr) => {
+                if (!Array.isArray(arr) || arr.length === 0) return NA;
+                // Prefix with apostrophe to force text in Excel and avoid formula issues
+                return `'` + `- ${arr.join('\n- ')}`;
+            };
             const getPingField = (inst, field) => {
                 const p = inst.ping || {};
                 switch (field) {
@@ -282,26 +286,29 @@ export class ExcelIntegrationManager {
             // Build rows
             const rows = [];
             // Header timestamp
-            rows.push(['Last Updated  at Timestamp', '', nowIso, ...Array(Math.max(0, colCount - 3)).fill('')]);
+            const tsRow = rows.length; rows.push(['Last Updated  at Timestamp', '', nowIso, ...Array(Math.max(0, colCount - 3)).fill('')]);
             // Spacer
-            rows.push(Array(colCount).fill(''));
+            const spacer1Row = rows.length; rows.push(Array(colCount).fill(''));
             // Instance SNo.
-            rows.push(['Instance SNo.', '', ...instanceUrls.map((_, i) => i + 1)]);
+            const instanceSnoRow = rows.length; rows.push(['Instance SNo.', '', ...instanceUrls.map((_, i) => i + 1)]);
             // Instance URL
-            rows.push(['Instance URL', '', ...instanceUrls]);
+            const instanceUrlRow = rows.length; rows.push(['Instance URL', '', ...instanceUrls]);
             // Spacer
-            rows.push(Array(colCount).fill(''));
+            const spacer2Row = rows.length; rows.push(Array(colCount).fill(''));
 
             // Ping block
             const pingFields = ['Uptime', 'DataRead', 'DataSent', 'DataPurge', 'Authentication Optional', 'Service Name', 'Hostname', 'IP Addresses', 'Health', 'Safe Mode', 'Version', 'Alerts'];
+            const pingStartRow = rows.length;
             pingFields.forEach((field, idx) => {
                 const values = perInstanceResults.map(inst => getPingField(inst, field));
                 rows.push([idx === 0 ? 'Ping' : '', field, ...values]);
             });
+            const pingEndRow = rows.length - 1;
             // Spacer
-            rows.push(Array(colCount).fill(''));
+            const spacer3Row = rows.length; rows.push(Array(colCount).fill(''));
 
             // Statistics block
+            const statsStartRow = rows.length;
             statsKeys.forEach((key, idx) => {
                 const values = perInstanceResults.map(inst => {
                     const v = inst.statsMap.get(key);
@@ -309,8 +316,9 @@ export class ExcelIntegrationManager {
                 });
                 rows.push([idx === 0 ? 'Statistics' : '', key, ...values]);
             });
+            const statsEndRow = rows.length - 1;
             // Spacer
-            rows.push(Array(colCount).fill(''));
+            const spacer4Row = rows.length; rows.push(Array(colCount).fill(''));
 
             // Assets block
             const allAssetNames = new Set();
@@ -319,7 +327,8 @@ export class ExcelIntegrationManager {
             }
             const assetNames = Array.from(allAssetNames).sort((a, b) => a.localeCompare(b));
             // Header for assets section
-            rows.push(['Assets', 'Asset Name / Counts', ...Array(instanceUrls.length).fill('')]);
+            const assetsHeaderRow = rows.length; rows.push(['Assets', 'Asset Name / Counts', ...Array(instanceUrls.length).fill('')]);
+            const assetStartRow = rows.length;
             assetNames.forEach((name) => {
                 const values = perInstanceResults.map(inst => {
                     const v = inst.assetsMap.get(name);
@@ -327,6 +336,7 @@ export class ExcelIntegrationManager {
                 });
                 rows.push(['', name, ...values]);
             });
+            const assetEndRow = rows.length - 1;
 
             // Normalize and write to sheet
             const normalized = this.normalizeRowsForExcel(rows, colCount);
@@ -344,6 +354,75 @@ export class ExcelIntegrationManager {
 
                 const range = sheet.getRangeByIndexes(0, 0, normalized.length, colCount);
                 range.values = normalized;
+                await context.sync();
+
+                // Formatting and merging for readability
+                try {
+                    // Timestamp row light background
+                    const tsRange = sheet.getRangeByIndexes(tsRow, 0, 1, colCount);
+                    tsRange.format.fill.color = '#F3F4F6';
+                    tsRange.format.font.bold = true;
+
+                    // Merge A:B for Instance SNo. and Instance URL, apply black bg and white text
+                    const snoLabel = sheet.getRangeByIndexes(instanceSnoRow, 0, 1, 2);
+                    snoLabel.merge(false);
+                    snoLabel.format.fill.color = '#000000';
+                    snoLabel.format.font.color = '#FFFFFF';
+                    snoLabel.format.font.bold = true;
+                    const urlLabel = sheet.getRangeByIndexes(instanceUrlRow, 0, 1, 2);
+                    urlLabel.merge(false);
+                    urlLabel.format.fill.color = '#000000';
+                    urlLabel.format.font.color = '#FFFFFF';
+                    urlLabel.format.font.bold = true;
+
+                    // Ping section: merge label in column A, color blue; color field names in B
+                    if (pingEndRow >= pingStartRow) {
+                        const pingLabel = sheet.getRangeByIndexes(pingStartRow, 0, (pingEndRow - pingStartRow + 1), 1);
+                        pingLabel.merge(false);
+                        pingLabel.format.fill.color = '#0078D4';
+                        pingLabel.format.font.color = '#FFFFFF';
+                        pingLabel.format.font.bold = true;
+                        const pingFieldsCol = sheet.getRangeByIndexes(pingStartRow, 1, (pingEndRow - pingStartRow + 1), 1);
+                        pingFieldsCol.format.fill.color = '#EEF2FF';
+                        pingFieldsCol.format.font.bold = true;
+                    }
+
+                    // Statistics section: merge label in column A, color green; color field names in B
+                    if (statsEndRow >= statsStartRow) {
+                        const statsLabel = sheet.getRangeByIndexes(statsStartRow, 0, (statsEndRow - statsStartRow + 1), 1);
+                        statsLabel.merge(false);
+                        statsLabel.format.fill.color = '#22C55E';
+                        statsLabel.format.font.color = '#FFFFFF';
+                        statsLabel.format.font.bold = true;
+                        const statsFieldsCol = sheet.getRangeByIndexes(statsStartRow, 1, (statsEndRow - statsStartRow + 1), 1);
+                        statsFieldsCol.format.fill.color = '#ECFDF5';
+                        statsFieldsCol.format.font.bold = true;
+                    }
+
+                    // Assets section: merge label in column A across header + asset rows, color orange
+                    const assetsLabelRows = (assetEndRow >= assetsHeaderRow) ? (assetEndRow - assetsHeaderRow + 1) : 1;
+                    const assetsLabel = sheet.getRangeByIndexes(assetsHeaderRow, 0, assetsLabelRows, 1);
+                    assetsLabel.merge(false);
+                    assetsLabel.format.fill.color = '#F59E0B';
+                    assetsLabel.format.font.color = '#FFFFFF';
+                    assetsLabel.format.font.bold = true;
+                    // Asset name column B background
+                    if (assetEndRow >= assetStartRow) {
+                        const assetNameCol = sheet.getRangeByIndexes(assetStartRow, 1, (assetEndRow - assetStartRow + 1), 1);
+                        assetNameCol.format.fill.color = '#FFF7ED';
+                        assetNameCol.format.font.bold = true;
+                    }
+
+                    // Add thin borders to data area for readability
+                    const dataArea = sheet.getRangeByIndexes(0, 0, normalized.length, colCount);
+                    dataArea.format.borders.getItem('InsideHorizontal').style = 'Continuous';
+                    dataArea.format.borders.getItem('InsideHorizontal').color = '#E5E7EB';
+                    dataArea.format.borders.getItem('InsideVertical').style = 'Continuous';
+                    dataArea.format.borders.getItem('InsideVertical').color = '#E5E7EB';
+                } catch (fmtError) {
+                    console.warn('Formatting error (non-fatal):', fmtError);
+                }
+
                 await context.sync();
 
                 logMessage('info', 'Multi-instance status export done', { sheet: sheetName, instances: instanceUrls.length, rows: normalized.length, columns: colCount });

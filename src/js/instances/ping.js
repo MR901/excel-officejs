@@ -366,6 +366,15 @@ export class InstancePingManager {
     }
 
     /**
+     * Backward-compatible alias used by callers to update history
+     * @param {string} url
+     * @param {Object} result
+     */
+    updatePingHistory(url, result) {
+        this.recordPingHistory(url, result);
+    }
+
+    /**
      * Get ping history for instance
      * @param {string} url - Instance URL
      * @returns {Array} Array of ping history entries

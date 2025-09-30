@@ -5,6 +5,7 @@
 
 const http = require('http');
 const https = require('https');
+const fs = require('fs');
 const url = require('url');
 
 // Configuration
@@ -26,11 +27,19 @@ let INSTANCES = {
 };
 
 // Note: Instances are updated dynamically via the /config POST endpoint
+// Request correlation
+let REQUEST_COUNTER = 0;
+function nextRequestId() {
+    REQUEST_COUNTER += 1;
+    return String(REQUEST_COUNTER).padStart(6, '0');
+}
 
 // CORS headers
 function setCORSHeaders(res, req) {
+    console.log(`reached-3`);
     const reqOrigin = req && req.headers && req.headers.origin;
-    let allowOrigin = 'https://mr901.github.io';
+    let allowOrigin = '*';
+    // let allowOrigin = 'https://mr901.github.io';
     if (reqOrigin) {
         // Simple wildcard support for *.sharepoint.com
         const isSharePoint = /https?:\/\/([a-z0-9-]+\.)*sharepoint\.com$/i.test(reqOrigin);
@@ -38,21 +47,37 @@ function setCORSHeaders(res, req) {
             allowOrigin = reqOrigin;
         }
     }
+    const requestedMethod = req && req.headers && req.headers['access-control-request-method'];
+    const requestedHeaders = req && req.headers && req.headers['access-control-request-headers'];
+
     res.setHeader('Access-Control-Allow-Origin', allowOrigin);
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Methods', requestedMethod ? `${requestedMethod}, OPTIONS` : 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', requestedHeaders || 'Content-Type, Authorization');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Vary', 'Origin, Access-Control-Request-Method, Access-Control-Request-Headers');
+    if (req && req._requestId) {
+        console.log(`   [${req._requestId}] CORS Allow-Origin -> ${allowOrigin}`);
+        if (requestedMethod) console.log(`   [${req._requestId}] CORS Requested-Method -> ${requestedMethod}`);
+        if (requestedHeaders) console.log(`   [${req._requestId}] CORS Requested-Headers -> ${requestedHeaders}`);
+    }
 }
 
 // Forward request to FogLAMP instance
-function proxyRequest(instanceUrl, clientReq, clientRes, path) {
-    const targetUrl = url.parse(instanceUrl + path);
+function proxyRequest(instanceUrl, clientReq, clientRes, path, requestId) {
+    console.log(`reached-2`);
+    // Normalize path to start with a single leading slash
+    const normalizedPath = path && path.startsWith('/') ? path : `/${path || ''}`;
+    // Build a robust target URL using WHATWG URL to avoid bad concatenation
+    const base = instanceUrl.endsWith('/') ? instanceUrl : `${instanceUrl}/`;
+    const targetUrl = new URL(normalizedPath.replace(/^\/+/, ''), base);
     const requestModule = targetUrl.protocol === 'https:' ? https : http;
+    const startMs = Date.now();
+    console.log(`🔀 [${requestId}] Forwarding ${clientReq.method} ${normalizedPath} -> ${targetUrl.href}`);
     
     const options = {
         hostname: targetUrl.hostname,
-        port: targetUrl.port,
-        path: targetUrl.path,
+        port: targetUrl.port || (targetUrl.protocol === 'https:' ? 443 : 80),
+        path: `${targetUrl.pathname}${targetUrl.search}`,
         method: clientReq.method,
         headers: {
             ...clientReq.headers,
@@ -61,14 +86,23 @@ function proxyRequest(instanceUrl, clientReq, clientRes, path) {
     };
 
     const proxyReq = requestModule.request(options, (proxyRes) => {
-        setCORSHeaders(clientRes);
+        setCORSHeaders(clientRes, clientReq);
         clientRes.writeHead(proxyRes.statusCode, proxyRes.headers);
+        let responseBytes = 0;
+        proxyRes.on('data', (chunk) => {
+            responseBytes += chunk.length;
+        });
+        proxyRes.on('end', () => {
+            const durationMs = Date.now() - startMs;
+            console.log(`✅ [${requestId}] ${clientReq.method} ${path} -> ${proxyRes.statusCode} in ${durationMs}ms (${responseBytes} bytes)`);
+        });
         proxyRes.pipe(clientRes);
     });
 
     proxyReq.on('error', (error) => {
-        console.error(`❌ Proxy error for ${instanceUrl}:`, error.message);
-        setCORSHeaders(clientRes);
+        const durationMs = Date.now() - startMs;
+        console.error(`❌ [${requestId}] Proxy error for ${instanceUrl}${path} after ${durationMs}ms: ${error.message}`);
+        setCORSHeaders(clientRes, clientReq);
         clientRes.writeHead(500, {'Content-Type': 'application/json'});
         clientRes.end(JSON.stringify({
             error: 'FogLAMP instance unreachable',
@@ -81,8 +115,26 @@ function proxyRequest(instanceUrl, clientReq, clientRes, path) {
     clientReq.pipe(proxyReq);
 }
 
-// Create proxy server
-const server = http.createServer((req, res) => {
+// Common request handler
+function requestListener(req, res) {
+    console.log(`reached-1`);
+    const requestId = nextRequestId();
+    req._requestId = requestId;
+    const remote = req.socket && req.socket.remoteAddress ? req.socket.remoteAddress : 'unknown';
+    const origin = req.headers && req.headers.origin ? req.headers.origin : 'n/a';
+    const contentType = req.headers && req.headers['content-type'] ? req.headers['content-type'] : 'n/a';
+    const contentLength = req.headers && req.headers['content-length'] ? req.headers['content-length'] : 'n/a';
+    console.log(`➡️  [${requestId}] ${req.method} ${req.url} from ${remote}`);
+    console.log(`   [${requestId}] Origin: ${origin} | Content-Type: ${contentType} | Content-Length: ${contentLength}`);
+
+    req.on('aborted', () => {
+        console.warn(`⚠️  [${requestId}] Client aborted request`);
+    });
+    req.on('close', () => {
+        // Close without status, informational only
+        console.log(`↘️  [${requestId}] Connection closed`);
+    });
+
     const parsedUrl = url.parse(req.url, true);
     const pathname = parsedUrl.pathname;
 
@@ -91,6 +143,7 @@ const server = http.createServer((req, res) => {
         setCORSHeaders(res, req);
         res.writeHead(200);
         res.end();
+        console.log(`🟡 [${requestId}] Handled CORS preflight for ${pathname}`);
         return;
     }
 
@@ -103,6 +156,7 @@ const server = http.createServer((req, res) => {
             instances: Object.keys(INSTANCES),
             timestamp: new Date().toISOString()
         }));
+        console.log(`🩺 [${requestId}] Health responded OK`);
         return;
     }
 
@@ -117,6 +171,7 @@ const server = http.createServer((req, res) => {
                 instances: INSTANCES,
                 timestamp: new Date().toISOString()
             }));
+            console.log(`⚙️  [${requestId}] Returned proxy configuration`);
             return;
         }
         
@@ -129,10 +184,11 @@ const server = http.createServer((req, res) => {
             
             req.on('end', () => {
                 try {
+                    console.log(`⚙️  [${requestId}] Received /config POST body (${body.length} bytes)`);
                     const newConfig = JSON.parse(body);
                     if (newConfig.instances && typeof newConfig.instances === 'object') {
                         INSTANCES = { ...INSTANCES, ...newConfig.instances };
-                        console.log('🔄 Configuration updated via API:', Object.keys(INSTANCES));
+                        console.log(`🔄 [${requestId}] Configuration updated via API → Instances: ${Object.keys(INSTANCES).join(', ')}`);
                         
                         res.writeHead(200, {'Content-Type': 'application/json'});
                         res.end(JSON.stringify({
@@ -147,6 +203,7 @@ const server = http.createServer((req, res) => {
                             status: 'error',
                             message: 'Invalid configuration format. Expected: {"instances": {...}}'
                         }));
+                        console.warn(`⚠️  [${requestId}] Invalid configuration format`);
                     }
                 } catch (error) {
                     res.writeHead(400, {'Content-Type': 'application/json'});
@@ -155,6 +212,7 @@ const server = http.createServer((req, res) => {
                         message: 'Invalid JSON in request body',
                         error: error.message
                     }));
+                    console.error(`❌ [${requestId}] Invalid JSON in /config POST: ${error.message}`);
                 }
             });
             return;
@@ -165,9 +223,12 @@ const server = http.createServer((req, res) => {
     for (const [instanceName, instanceUrl] of Object.entries(INSTANCES)) {
         const prefix = `/${instanceName}`;
         if (pathname.startsWith(prefix)) {
-            const remainingPath = pathname.substring(prefix.length);
-            console.log(`📡 Proxying ${instanceName}: ${req.method} ${remainingPath}`);
-            proxyRequest(instanceUrl, req, res, remainingPath);
+            let remainingPath = pathname.substring(prefix.length);
+            if (remainingPath.length === 0) {
+                remainingPath = '/';
+            }
+            console.log(`📡 [${requestId}] Proxying ${instanceName}: ${req.method} ${remainingPath}`);
+            proxyRequest(instanceUrl, req, res, remainingPath, requestId);
             return;
         }
     }
@@ -189,6 +250,39 @@ const server = http.createServer((req, res) => {
         examples: examples.length > 0 ? examples : ['/local/foglamp/ping'],
         tip: 'Use POST /config to add more instances dynamically'
     }));
+    console.warn(`❓ [${requestId}] Route not found: ${pathname}`);
+}
+
+// Create HTTP or HTTPS server depending on env
+const ENABLE_HTTPS = process.env.HTTPS === '1' || process.env.HTTPS === 'true';
+const SSL_KEY_PATH = process.env.SSL_KEY_PATH;
+const SSL_CERT_PATH = process.env.SSL_CERT_PATH;
+let server;
+if (ENABLE_HTTPS && SSL_KEY_PATH && SSL_CERT_PATH) {
+    try {
+        const key = fs.readFileSync(SSL_KEY_PATH);
+        const cert = fs.readFileSync(SSL_CERT_PATH);
+        server = https.createServer({ key, cert }, requestListener);
+        console.log('🔒 HTTPS mode enabled');
+    } catch (err) {
+        console.error(`⚠️  Failed to load SSL certs (${err.message}). Falling back to HTTP.`);
+        server = http.createServer(requestListener);
+    }
+} else {
+    server = http.createServer(requestListener);
+    if (ENABLE_HTTPS) {
+        console.warn('⚠️  HTTPS requested but SSL_KEY_PATH / SSL_CERT_PATH not set; using HTTP');
+    }
+}
+
+// Surface lower-level HTTP parser errors
+server.on('clientError', (err, socket) => {
+    console.error(`⚠️  clientError: ${err && err.message ? err.message : String(err)}`);
+    try {
+        socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
+    } catch (_) {
+        try { socket.destroy(); } catch (_) {}
+    }
 });
 
 // Start server
@@ -205,6 +299,9 @@ server.listen(PROXY_PORT, () => {
     console.log(`\n🏥 Health check: http://localhost:${PROXY_PORT}/health`);
     console.log('\n⭐ Your Excel add-in can now access all instances!');
     console.log('⏹️  Press Ctrl+C to stop the proxy');
+    console.log('\n🌍 Allowed origins:');
+    ALLOWED_ORIGINS.forEach(o => console.log(`   ${o}`));
+    console.log('   *.sharepoint.com (wildcard)');
 });
 
 // Graceful shutdown
@@ -219,4 +316,12 @@ process.on('SIGINT', () => {
 process.on('SIGTERM', () => {
     console.log('\n🛑 Proxy server terminated');
     process.exit(0);
+});
+
+// Global error visibility
+process.on('unhandledRejection', (reason) => {
+    console.error('🚨 Unhandled promise rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+    console.error('🚨 Uncaught exception:', err && err.stack ? err.stack : err);
 });

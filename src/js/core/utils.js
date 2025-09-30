@@ -9,7 +9,7 @@
  * @returns {string} Safe display name
  */
 export function getDisplayName(instance) {
-    if (instance?.name) return instance.name;
+    // Always prefer resolved hostName from FogLAMP; ignore editable name to avoid confusion
     if (instance?.hostName) return instance.hostName;
     
     try {

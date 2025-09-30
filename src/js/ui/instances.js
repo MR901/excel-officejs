@@ -162,16 +162,13 @@ export class InstanceListManager {
         const info = document.createElement('div');
         info.className = 'instance-info';
 
-        // Instance name (editable)
+        // Instance name (display-only: show hostname)
         const name = document.createElement('div');
         name.className = 'instance-name';
         
-        const displayName = instance.name || instance.hostName || this.extractHostname(instance.url);
+        const displayName = instance.hostName || this.extractHostname(instance.url);
         name.textContent = displayName;
-        name.title = 'Double-click to edit name';
-        
-        // Add editable functionality
-        name.addEventListener('dblclick', () => this.editInstanceName(instance.url, name));
+        name.title = displayName;
 
         // Instance URL
         const url = document.createElement('div');

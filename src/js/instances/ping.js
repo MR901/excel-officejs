@@ -4,7 +4,7 @@
  */
 
 import { updateInstanceMeta, setActiveInstance, getActiveInstance, getInstanceMeta } from '../core/storage.js';
-import { INSTANCE_STATUS } from '../core/config.js';
+import { INSTANCE_STATUS, CONNECTION_CONFIG } from '../core/config.js';
 import { getDisplayName } from '../core/utils.js';
 import { logMessage } from '../ui/console.js';
 
@@ -169,41 +169,76 @@ export class InstancePingManager {
      * @returns {Promise<Object>} Ping validation result
      */
     async pingUrlForValidation(url, timeoutMs = 8000) {
+        // Prefer proxy validation in web contexts to avoid TLS/CORS issues
+        const isHttpsPage = typeof window !== 'undefined' && window.location && window.location.protocol === 'https:';
+        const proxyBaseHttps = `https://localhost:${CONNECTION_CONFIG.PROXY_PORT || 3001}`;
+        const proxyBaseHttp = CONNECTION_CONFIG.PROXY_BASE_URL || 'http://localhost:3001';
+        const proxyBase = isHttpsPage ? proxyBaseHttps : proxyBaseHttp;
+
+        // Helper to derive proxy path name from URL (mirrors smart-connection.js)
+        const getProxyPath = (targetUrl) => {
+            try {
+                const parsed = new URL(targetUrl);
+                const host = parsed.hostname;
+                if (host === '127.0.0.1' || host === 'localhost') {
+                    return 'local';
+                }
+                return host.replace(/\./g, '-').toLowerCase();
+            } catch (_e) {
+                return 'instance-validate';
+            }
+        };
+
+        // Try via proxy first
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-            
-            const response = await fetch(`${url}/foglamp/ping`, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                signal: controller.signal
+            const path = getProxyPath(url);
+            // Configure proxy dynamically for this single URL
+            await fetch(`${proxyBase}/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ instances: { [path]: url } }),
+                mode: 'cors',
+                credentials: 'omit'
             });
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+            const response = await fetch(`${proxyBase}/${path}/foglamp/ping`, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' },
+                mode: 'cors',
+                credentials: 'omit',
+                signal: controller.signal
+            });
             clearTimeout(timeoutId);
 
             if (response.ok) {
                 const data = await response.json();
-                return {
-                    ok: true,
-                    status: response.status,
-                    hostName: data.hostName || data.serviceName || '',
-                    data
-                };
-            } else {
-                return {
-                    ok: false,
-                    status: response.status,
-                    error: `HTTP ${response.status}: ${response.statusText}`
-                };
+                return { ok: true, status: response.status, hostName: data.hostName || data.serviceName || '', data };
             }
+            // If proxy responds non-OK, fall through to direct for detail
+        } catch (_proxyError) {
+            // Fall back to direct below
+        }
+
+        // Fallback: direct call (works on desktop or when cert/CORS allows)
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+            const response = await fetch(`${url}/foglamp/ping`, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (response.ok) {
+                const data = await response.json();
+                return { ok: true, status: response.status, hostName: data.hostName || data.serviceName || '', data };
+            }
+            return { ok: false, status: response.status, error: `HTTP ${response.status}: ${response.statusText}` };
         } catch (error) {
-            return {
-                ok: false,
-                error: this.getErrorMessage(error)
-            };
+            return { ok: false, error: this.getErrorMessage(error) };
         }
     }
 
@@ -437,7 +472,8 @@ export class InstancePingManager {
                         if (window.updateInstanceMeta) {
                             window.updateInstanceMeta(url, {
                                 lastStatus: smartStatus,
-                                hostName: smartInstance.health || currentMeta.hostName,
+                                // Prefer hostname from smart manager if present; never use health here
+                                hostName: smartInstance.hostname || currentMeta.hostName,
                                 lastCheckedAt: new Date().toISOString(),
                                 lastError: smartInstance.accessible ? null : 'Not accessible via smart manager'
                             });

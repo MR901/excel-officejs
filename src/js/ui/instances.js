@@ -48,9 +48,11 @@ export class InstanceListManager {
         const instances = getEnhancedInstances();
         const activeUrl = getActiveInstance();
 
-        // Show empty state without removing it from DOM
+        // Show empty state and ensure previous rows are removed from DOM
         if (instances.length === 0) {
-            // Ensure empty state exists even if container was cleared before
+            // Clear any previously rendered rows
+            container.innerHTML = '';
+            // Ensure empty state exists even if container was cleared
             if (!emptyState) {
                 emptyState = document.createElement('div');
                 emptyState.id = 'empty-instances';

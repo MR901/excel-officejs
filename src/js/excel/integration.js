@@ -343,14 +343,14 @@ export class ExcelIntegrationManager {
 
             await Excel.run(async (context) => {
                 const sheet = await this.ensureWorksheet(context, sheetName);
-                const used = sheet.getUsedRangeOrNullObject(true);
-                used.load('isNullObject');
-                await context.sync();
-
-                if (!used.isNullObject) {
-                    used.clear();
+                // Clear a safe bounding area without relying on isNullObject (compat-safe)
+                try {
+                    const clearRows = Math.max(normalized.length + 50, 200);
+                    const clearCols = Math.max(colCount + 5, 10);
+                    const clearRange = sheet.getRangeByIndexes(0, 0, clearRows, clearCols);
+                    clearRange.clear();
                     await context.sync();
-                }
+                } catch (_e) {}
 
                 const range = sheet.getRangeByIndexes(0, 0, normalized.length, colCount);
                 range.values = normalized;
@@ -362,6 +362,8 @@ export class ExcelIntegrationManager {
                     const tsRange = sheet.getRangeByIndexes(tsRow, 0, 1, colCount);
                     tsRange.format.fill.color = '#F3F4F6';
                     tsRange.format.font.bold = true;
+                    tsRange.format.horizontalAlignment = 'Center';
+                    tsRange.format.verticalAlignment = 'Center';
 
                     // Merge A:B for Instance SNo. and Instance URL, apply black bg and white text
                     const snoLabel = sheet.getRangeByIndexes(instanceSnoRow, 0, 1, 2);
@@ -369,11 +371,15 @@ export class ExcelIntegrationManager {
                     snoLabel.format.fill.color = '#000000';
                     snoLabel.format.font.color = '#FFFFFF';
                     snoLabel.format.font.bold = true;
+                    snoLabel.format.horizontalAlignment = 'Center';
+                    snoLabel.format.verticalAlignment = 'Center';
                     const urlLabel = sheet.getRangeByIndexes(instanceUrlRow, 0, 1, 2);
                     urlLabel.merge(false);
                     urlLabel.format.fill.color = '#000000';
                     urlLabel.format.font.color = '#FFFFFF';
                     urlLabel.format.font.bold = true;
+                    urlLabel.format.horizontalAlignment = 'Center';
+                    urlLabel.format.verticalAlignment = 'Center';
 
                     // Ping section: merge label in column A, color blue; color field names in B
                     if (pingEndRow >= pingStartRow) {
@@ -382,6 +388,8 @@ export class ExcelIntegrationManager {
                         pingLabel.format.fill.color = '#0078D4';
                         pingLabel.format.font.color = '#FFFFFF';
                         pingLabel.format.font.bold = true;
+                        pingLabel.format.horizontalAlignment = 'Center';
+                        pingLabel.format.verticalAlignment = 'Center';
                         const pingFieldsCol = sheet.getRangeByIndexes(pingStartRow, 1, (pingEndRow - pingStartRow + 1), 1);
                         pingFieldsCol.format.fill.color = '#EEF2FF';
                         pingFieldsCol.format.font.bold = true;
@@ -394,6 +402,8 @@ export class ExcelIntegrationManager {
                         statsLabel.format.fill.color = '#22C55E';
                         statsLabel.format.font.color = '#FFFFFF';
                         statsLabel.format.font.bold = true;
+                        statsLabel.format.horizontalAlignment = 'Center';
+                        statsLabel.format.verticalAlignment = 'Center';
                         const statsFieldsCol = sheet.getRangeByIndexes(statsStartRow, 1, (statsEndRow - statsStartRow + 1), 1);
                         statsFieldsCol.format.fill.color = '#ECFDF5';
                         statsFieldsCol.format.font.bold = true;
@@ -406,6 +416,8 @@ export class ExcelIntegrationManager {
                     assetsLabel.format.fill.color = '#F59E0B';
                     assetsLabel.format.font.color = '#FFFFFF';
                     assetsLabel.format.font.bold = true;
+                    assetsLabel.format.horizontalAlignment = 'Center';
+                    assetsLabel.format.verticalAlignment = 'Center';
                     // Asset name column B background
                     if (assetEndRow >= assetStartRow) {
                         const assetNameCol = sheet.getRangeByIndexes(assetStartRow, 1, (assetEndRow - assetStartRow + 1), 1);
@@ -419,6 +431,27 @@ export class ExcelIntegrationManager {
                     dataArea.format.borders.getItem('InsideHorizontal').color = '#E5E7EB';
                     dataArea.format.borders.getItem('InsideVertical').style = 'Continuous';
                     dataArea.format.borders.getItem('InsideVertical').color = '#E5E7EB';
+
+                    // Alignment rules
+                    // Column B vertical middle
+                    const colB = sheet.getRangeByIndexes(0, 1, normalized.length, 1);
+                    colB.format.verticalAlignment = 'Center';
+                    // Columns C.. align center + middle
+                    if (colCount > 2) {
+                        const valueCols = sheet.getRangeByIndexes(0, 2, normalized.length, colCount - 2);
+                        valueCols.format.horizontalAlignment = 'Center';
+                        valueCols.format.verticalAlignment = 'Center';
+                    }
+
+                    // Column widths
+                    // Column A: 10
+                    sheet.getRangeByIndexes(0, 0, 1, 1).getEntireColumn().format.columnWidth = 10;
+                    // Column B: 18
+                    sheet.getRangeByIndexes(0, 1, 1, 1).getEntireColumn().format.columnWidth = 18;
+                    // Columns C..: 18
+                    for (let c = 2; c < colCount; c++) {
+                        sheet.getRangeByIndexes(0, c, 1, 1).getEntireColumn().format.columnWidth = 18;
+                    }
                 } catch (fmtError) {
                     console.warn('Formatting error (non-fatal):', fmtError);
                 }
@@ -474,17 +507,18 @@ export class ExcelIntegrationManager {
                 return false;
             }
 
-            const { headers, rows } = this.buildTemplateReadings(readings, asset, exportParams.data.datapoint);
+            const { headers, rows } = this.buildSimpleReadings(readings, asset, exportParams.data.datapoint);
 
             await Excel.run(async (context) => {
                 const sheet = await this.ensureWorksheet(context, sheetName);
-                const used = sheet.getUsedRangeOrNullObject(true);
-                used.load('isNullObject');
-                await context.sync();
-                if (!used.isNullObject) {
-                    used.clear();
+                // Clear a safe bounding area without relying on isNullObject (compat-safe)
+                try {
+                    const clearRows = Math.max(rows.length + 50, 200);
+                    const clearCols = Math.max(headers.length + 5, 10);
+                    const clearRange = sheet.getRangeByIndexes(0, 0, clearRows, clearCols);
+                    clearRange.clear();
                     await context.sync();
-                }
+                } catch (_e) {}
 
                 // Write headers
                 if (headers && headers.length > 0) {
@@ -496,6 +530,13 @@ export class ExcelIntegrationManager {
                 if (rows && rows.length > 0) {
                     const dataRange = sheet.getRangeByIndexes(1, 0, rows.length, Math.max(1, headers.length));
                     dataRange.values = rows;
+                    // If first column is Timestamp, set a datetime format for that column
+                    try {
+                        const tsRange = sheet.getRangeByIndexes(1, 0, rows.length, 1);
+                        const fmt = this.exportFormats.readings.dateFormat;
+                        const fmtMatrix = Array(rows.length).fill([fmt]);
+                        tsRange.numberFormat = fmtMatrix;
+                    } catch (_e) {}
                 }
 
                 await context.sync();
@@ -794,6 +835,78 @@ export class ExcelIntegrationManager {
         });
 
         return { headers, rows };
+    }
+
+    /**
+     * Build simple readings table
+     * - If a datapoint is specified or only one datapoint exists, use that single datapoint column
+     * - Otherwise include all datapoints as columns
+     * Columns: Timestamp, Asset Name, <datapoint(s)>
+     * Timestamp is preserved as provided by FogLAMP (no reformatting)
+     */
+    buildSimpleReadings(readings, asset, datapoint = null) {
+        if (!Array.isArray(readings) || readings.length === 0) {
+            return { headers: ['No Data'], rows: [['No readings found']] };
+        }
+
+        // Collect datapoints present
+        const dpSet = new Set();
+        for (const r of readings) {
+            if (r && r.reading && typeof r.reading === 'object') {
+                for (const k of Object.keys(r.reading)) dpSet.add(k);
+            }
+        }
+        const dpProvided = datapoint && String(datapoint).trim() !== '' ? String(datapoint).trim() : null;
+        const dpList = Array.from(dpSet);
+
+        // Choose datapoint strategy
+        if (dpProvided || dpList.length === 1) {
+            const dpKey = dpProvided || dpList[0];
+            const headers = ['Timestamp', 'Asset Name', dpKey];
+            const rows = readings.map(r => {
+                const ts = r.user_ts || r.timestamp || '';
+                const asDate = this.parseFoglampTimestamp(ts);
+                return [
+                    asDate || ts,
+                    asset,
+                    r.reading && Object.prototype.hasOwnProperty.call(r.reading, dpKey) ? r.reading[dpKey] : ''
+                ];
+            });
+            return { headers, rows };
+        }
+
+        // Multiple datapoints, include all
+        const headers = ['Timestamp', 'Asset Name', ...dpList];
+        const rows = readings.map(r => {
+            const ts = r.user_ts || r.timestamp || '';
+            const asDate = this.parseFoglampTimestamp(ts);
+            return [
+                asDate || ts,
+                asset,
+                ...dpList.map(k => (r.reading && Object.prototype.hasOwnProperty.call(r.reading, k) ? r.reading[k] : ''))
+            ];
+        });
+        return { headers, rows };
+    }
+
+    /**
+     * Parse FogLAMP timestamp (e.g., "YYYY-MM-DD HH:MM:SS.micros") to JS Date (UTC)
+     * Returns null if parsing fails
+     */
+    parseFoglampTimestamp(ts) {
+        if (!ts || typeof ts !== 'string') return null;
+        const m = ts.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?/);
+        if (!m) return null;
+        const year = parseInt(m[1], 10);
+        const month = parseInt(m[2], 10) - 1;
+        const day = parseInt(m[3], 10);
+        const hour = parseInt(m[4], 10);
+        const minute = parseInt(m[5], 10);
+        const second = parseInt(m[6], 10);
+        const frac = m[7] || '0';
+        const ms = Math.round(parseInt(frac.padEnd(6, '0').slice(0, 6), 10) / 1000); // microseconds -> ms
+        const d = new Date(Date.UTC(year, month, day, hour, minute, second, ms));
+        return isNaN(d.getTime()) ? null : d;
     }
 
     /**

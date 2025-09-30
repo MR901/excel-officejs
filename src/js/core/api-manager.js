@@ -4,6 +4,8 @@
  * Works with and without proxy server, supports Excel Desktop/Web and Google Sheets
  */
 
+import { CONNECTION_CONFIG } from './config.js';
+
 export class FogLAMPAPIManager {
     constructor() {
         this.smartManager = null;
@@ -177,6 +179,94 @@ export class FogLAMPAPIManager {
     }
 
     /**
+     * Force API call for a specific base URL (bypasses smart selection)
+     * Automatically uses proxy in web environments when available
+     * @param {string} baseUrl - Exact instance base URL
+     * @param {string} endpoint - Endpoint path starting with '/'
+     * @param {Object} options - Request options
+     * @returns {Promise<any>} JSON data
+     */
+    async apiCallForUrl(baseUrl, endpoint, options = {}) {
+        await this.initialize();
+
+        const method = options.method || 'GET';
+        const timeout = options.timeout || 10000;
+
+        const isWeb = this.platform === 'excel-web';
+        const isLocal = /^(https?:\/\/)?(localhost|127\.0\.0\.1)/i.test(baseUrl);
+
+        // Choose proxy base respecting page protocol
+        const isHttpsPage = typeof window !== 'undefined' && window.location && window.location.protocol === 'https:';
+        const proxyBaseHttps = `https://localhost:${CONNECTION_CONFIG.PROXY_PORT || 3001}`;
+        const proxyBaseHttp = CONNECTION_CONFIG.PROXY_BASE_URL || 'http://localhost:3001';
+        const proxyBase = isHttpsPage ? proxyBaseHttps : proxyBaseHttp;
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+        try {
+            // Prefer proxy in web for non-local URLs when proxy available
+            if (isWeb && !isLocal && this.smartManager && this.smartManager.proxyAvailable) {
+                const path = this._getProxyPath(baseUrl);
+                // Ensure mapping exists
+                try {
+                    await fetch(`${proxyBase}/config`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ instances: { [path]: baseUrl } })
+                    });
+                } catch (_) {}
+
+                const resp = await fetch(`${proxyBase}/${path}${endpoint}`, {
+                    method,
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    },
+                    body: options.body,
+                    credentials: 'omit',
+                    mode: 'cors',
+                    signal: controller.signal
+                });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+                return await resp.json();
+            }
+
+            // Direct call
+            const url = `${baseUrl}${endpoint}`;
+            const platformConfig = this.platformConfig[this.platform] || this.platformConfig.unknown;
+            const resp = await fetch(url, {
+                method,
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    ...options.headers
+                },
+                body: options.body,
+                mode: platformConfig.corsMode,
+                credentials: platformConfig.credentials,
+                signal: controller.signal
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+            return await resp.json();
+        } finally {
+            clearTimeout(timeoutId);
+        }
+    }
+
+    _getProxyPath(targetUrl) {
+        try {
+            const parsed = new URL(targetUrl);
+            const host = parsed.hostname;
+            if (host === '127.0.0.1' || host === 'localhost') return 'local';
+            return host.replace(/\./g, '-').toLowerCase();
+        } catch (_e) {
+            return 'instance';
+        }
+    }
+
+    /**
      * Call API via smart manager (handles proxy automatically)
      * @private
      */
@@ -259,6 +349,10 @@ export class FogLAMPAPIManager {
         return await this.apiCall(this.apiEndpoints.ping);
     }
 
+    async pingForUrl(baseUrl) {
+        return await this.apiCallForUrl(baseUrl, this.apiEndpoints.ping);
+    }
+
     /**
      * FogLAMP Statistics API - unified method for all statistics operations
      * @returns {Promise<Object>} Statistics response data
@@ -267,12 +361,20 @@ export class FogLAMPAPIManager {
         return await this.apiCall(this.apiEndpoints.statistics);
     }
 
+    async statisticsForUrl(baseUrl) {
+        return await this.apiCallForUrl(baseUrl, this.apiEndpoints.statistics);
+    }
+
     /**
      * FogLAMP Assets API - unified method for all asset operations
      * @returns {Promise<Array>} Assets response data
      */
     async assets() {
         return await this.apiCall(this.apiEndpoints.assets);
+    }
+
+    async assetsForUrl(baseUrl) {
+        return await this.apiCallForUrl(baseUrl, this.apiEndpoints.assets);
     }
 
     /**

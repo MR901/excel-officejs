@@ -215,59 +215,63 @@ export class ExcelIntegrationManager {
             return false;
         }
 
-        const instanceName = getDisplayName(activeInstance);
-        // Create Excel-safe sheet name (max 31 chars, no invalid characters)
-        const safeSheetName = this.createSafeSheetName(instanceName, 'Status');
+        const sheetName = 'Status';
 
         try {
-            logMessage('info', 'Starting status export', { instance: instanceName, sheet: safeSheetName });
+            logMessage('info', 'Starting minimal status export', { instance: activeInstance.url, sheet: sheetName });
 
-            // Fetch all required data
+            // Fetch all required data (raw)
             const [ping, stats, assets] = await Promise.allSettled([
                 this.fetchPingData(),
                 this.fetchStatisticsData(),
                 this.fetchAssetsData()
             ]);
 
+            const safe = (value) => {
+                try {
+                    const s = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+                    return this.truncateForExcel(s, 30000);
+                } catch (e) {
+                    const s = String(value);
+                    return this.truncateForExcel(s, 30000);
+                }
+            };
+
+            const unwrap = (settled) => settled.status === 'fulfilled' ? settled.value : { error: settled.reason?.message || 'Unknown error' };
+
+            const rows = [
+                ['Instance', activeInstance.url],
+                ['Timestamp', new Date().toISOString()],
+                ['', ''],
+                ['PING', safe(unwrap(ping))],
+                ['', ''],
+                ['STATISTICS', safe(unwrap(stats))],
+                ['', ''],
+                ['ASSETS', safe(unwrap(assets))]
+            ];
+
             await Excel.run(async (context) => {
-                const sheet = await this.ensureWorksheet(context, safeSheetName);
+                const sheet = await this.ensureWorksheet(context, sheetName);
                 const used = sheet.getUsedRangeOrNullObject(true);
                 await context.sync();
 
-                // Clear existing content if any
                 if (!used.isNullObject) {
                     used.clear();
                     await context.sync();
                 }
 
-                const start = sheet.getRange("A1");
+                const range = sheet.getRangeByIndexes(0, 0, rows.length, 2);
+                range.values = rows;
+                await context.sync();
 
-                // Prepare status data
-                const statusData = this.prepareStatusData(activeInstance, ping, stats, assets);
-                
-                // Validate data before writing
-                if (!this.validateDataForExcel(statusData)) {
-                    throw new Error('Invalid data format for Excel export');
-                }
-                
-                // Write data to sheet
-                await this.writeTable(start, statusData, this.exportFormats.status.headers, {
-                    headerFormat: true,
-                    dataFormat: true,
-                    autoFit: true
-                });
-
-                logMessage('info', 'Status export completed successfully', { 
-                    sheet: safeSheetName,
-                    rows: statusData.length 
-                });
+                logMessage('info', 'Minimal status export done', { sheet: sheetName, rows: rows.length });
             });
 
             return true;
 
         } catch (error) {
             logMessage('error', 'Status export failed', { 
-                instance: instanceName,
+                instance: activeInstance.url,
                 error: error.message 
             });
             return false;
@@ -285,37 +289,34 @@ export class ExcelIntegrationManager {
             return false;
         }
 
-        // Get selected asset
         const asset = this.getSelectedAsset();
         if (!asset) {
             logMessage('warn', 'Export Readings: no asset specified');
             return false;
         }
 
-        // Get export parameters
         const exportParams = this.getExportParameters();
         if (!exportParams.valid) {
             logMessage('warn', 'Export Readings: invalid parameters', exportParams.errors);
             return false;
         }
 
-        const instanceName = getDisplayName(activeInstance);
-        const sheetName = this.createSafeSheetName(instanceName, `${asset}-data`);
+        const sheetName = `${asset}-data`.substring(0, 31);
 
         try {
-            logMessage('info', 'Starting readings export', { 
-                instance: instanceName,
+            logMessage('info', 'Starting minimal readings export', { 
+                instance: activeInstance.url,
                 asset,
-                sheet: sheetName,
-                params: exportParams.data
+                sheet: sheetName
             });
 
-            // Fetch readings data
             const readings = await this.fetchReadingsData(asset, exportParams.data);
             if (!readings || readings.length === 0) {
                 logMessage('warn', 'No readings data found for export', { asset });
                 return false;
             }
+
+            const { headers, rows } = this.flattenReadings(readings);
 
             await Excel.run(async (context) => {
                 const sheet = await this.ensureWorksheet(context, sheetName);
@@ -325,37 +326,28 @@ export class ExcelIntegrationManager {
                     used.clear();
                     await context.sync();
                 }
-                const start = sheet.getRange("A1");
-                
-                // Process readings data
-                const { headers, rows } = this.flattenReadings(readings);
-                
-                // Validate data before writing
-                if (!this.validateDataForExcel(rows)) {
-                    throw new Error('Invalid readings data format for Excel export');
-                }
-                
-                // Write data to sheet with proper formatting
-                await this.writeTable(start, rows, headers, {
-                    headerFormat: true,
-                    dataFormat: true,
-                    autoFit: true,
-                    timestampColumn: this.exportFormats.readings.timestampColumn
-                });
 
-                logMessage('info', 'Readings export completed successfully', {
-                    sheet: sheetName,
-                    asset,
-                    rows: rows.length,
-                    columns: headers.length
-                });
+                // Write headers
+                if (headers && headers.length > 0) {
+                    const headerRange = sheet.getRangeByIndexes(0, 0, 1, headers.length);
+                    headerRange.values = [headers];
+                }
+
+                // Write rows
+                if (rows && rows.length > 0) {
+                    const dataRange = sheet.getRangeByIndexes(1, 0, rows.length, Math.max(1, headers.length));
+                    dataRange.values = rows;
+                }
+
+                await context.sync();
+                logMessage('info', 'Minimal readings export done', { sheet: sheetName, rows: rows.length, columns: headers.length });
             });
 
             return true;
 
         } catch (error) {
             logMessage('error', 'Readings export failed', {
-                instance: instanceName,
+                instance: activeInstance.url,
                 asset,
                 error: error.message
             });

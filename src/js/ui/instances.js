@@ -878,21 +878,124 @@ export class InstanceListManager {
     }
 
     /**
-     * Fallback browser confirmation dialog
+     * Fallback in-app modal confirmation (no window.confirm, Office-safe)
      * @param {string} title Dialog title
      * @param {string} message Dialog message  
      * @param {Function} onConfirm Callback for confirmation
      * @param {Function} onCancel Callback for cancellation
      */
     showBrowserConfirm(title, message, onConfirm, onCancel) {
-        const fullMessage = `${title}\n\n${message}`;
-        const confirmed = confirm(fullMessage);
-        
-        if (confirmed && onConfirm) {
-            onConfirm();
-        } else if (!confirmed && onCancel) {
-            onCancel();
-        }
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        `;
+
+        // Modal container
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            width: 420px;
+            max-width: 90vw;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            padding: 16px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #323130;
+        `;
+
+        const header = document.createElement('div');
+        header.textContent = title;
+        header.style.cssText = `
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        `;
+
+        const body = document.createElement('div');
+        body.textContent = message;
+        body.style.cssText = `
+            white-space: pre-line;
+            font-size: 14px;
+            color: #605e5c;
+            line-height: 1.4;
+            margin-bottom: 16px;
+        `;
+
+        const buttons = document.createElement('div');
+        buttons.style.cssText = `
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        `;
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.cssText = `
+            padding: 8px 14px;
+            background: #ffffff;
+            border: 1px solid #8a8886;
+            border-radius: 2px;
+            cursor: pointer;
+        `;
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.type = 'button';
+        confirmBtn.textContent = 'Remove';
+        confirmBtn.style.cssText = `
+            padding: 8px 14px;
+            background: #d13438;
+            color: #ffffff;
+            border: 1px solid #d13438;
+            border-radius: 2px;
+            cursor: pointer;
+            font-weight: 600;
+        `;
+
+        const cleanup = () => {
+            document.removeEventListener('keydown', onKeydown);
+            if (overlay && overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+        };
+
+        const onKeydown = (e) => {
+            if (e.key === 'Escape') {
+                cleanup();
+                if (onCancel) onCancel();
+            }
+        };
+
+        cancelBtn.addEventListener('click', () => {
+            cleanup();
+            if (onCancel) onCancel();
+        });
+
+        confirmBtn.addEventListener('click', () => {
+            cleanup();
+            if (onConfirm) onConfirm();
+        });
+
+        buttons.appendChild(cancelBtn);
+        buttons.appendChild(confirmBtn);
+
+        modal.appendChild(header);
+        modal.appendChild(body);
+        modal.appendChild(buttons);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Focus management
+        setTimeout(() => cancelBtn.focus(), 0);
+        document.addEventListener('keydown', onKeydown);
     }
 }
 

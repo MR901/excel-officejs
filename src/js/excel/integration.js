@@ -3,7 +3,7 @@
  * Handles Excel worksheet operations, data export, and formatting
  */
 
-import { getActiveInstanceWithMeta } from '../core/storage.js';
+import { getActiveInstanceWithMeta, getInstances } from '../core/storage.js';
 import { getDisplayName, getColumnLetter } from '../core/utils.js';
 import { logMessage } from '../ui/console.js';
 import { elements } from '../ui/elements.js';
@@ -209,46 +209,127 @@ export class ExcelIntegrationManager {
      * @returns {Promise<boolean>} Success status
      */
     async handleExportStatus() {
-        const activeInstance = getActiveInstanceWithMeta();
-        if (!activeInstance) {
-            logMessage('warn', 'Export Status: no active instance');
+        const instanceUrls = getInstances();
+        if (!instanceUrls || instanceUrls.length === 0) {
+            logMessage('warn', 'Export Status: no instances registered');
             return false;
         }
 
         const sheetName = 'Status';
 
         try {
-            logMessage('info', 'Starting minimal status export', { instance: activeInstance.url, sheet: sheetName });
+            logMessage('info', 'Starting multi-instance status export', { instances: instanceUrls.length, sheet: sheetName });
 
-            // Fetch all required data (raw)
-            const [ping, stats, assets] = await Promise.allSettled([
-                this.fetchPingData(),
-                this.fetchStatisticsData(),
-                this.fetchAssetsData()
-            ]);
+            // Fetch ping, statistics, assets for each instance in parallel
+            const perInstanceResults = await Promise.all(
+                instanceUrls.map(async (url) => {
+                    const [pingRes, statsRes, assetsRes] = await Promise.allSettled([
+                        window.FogLAMP.api.pingForUrl(url),
+                        window.FogLAMP.api.statisticsForUrl(url),
+                        window.FogLAMP.api.assetsForUrl(url)
+                    ]);
 
-            const safe = (value) => {
-                try {
-                    const s = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
-                    return this.truncateForExcel(s, 30000);
-                } catch (e) {
-                    const s = String(value);
-                    return this.truncateForExcel(s, 30000);
+                    const ping = pingRes.status === 'fulfilled' ? pingRes.value : null;
+                    const stats = statsRes.status === 'fulfilled' ? statsRes.value : null;
+                    const assets = assetsRes.status === 'fulfilled' ? assetsRes.value : null;
+
+                    // Build quick lookup maps
+                    const statsMap = new Map();
+                    if (Array.isArray(stats)) {
+                        for (const item of stats) {
+                            if (item && item.key != null) statsMap.set(String(item.key).toUpperCase(), item.value);
+                        }
+                    }
+
+                    const assetsMap = new Map();
+                    if (Array.isArray(assets)) {
+                        for (const a of assets) {
+                            if (a && a.assetCode != null) assetsMap.set(String(a.assetCode), a.count);
+                        }
+                    }
+
+                    return { url, ping, statsMap, assetsMap };
+                })
+            );
+
+            const nowIso = new Date().toISOString();
+            const colCount = instanceUrls.length + 2; // A: Section, B: Field, C..: instances
+            const NA = 'NA';
+
+            const boolStr = (v) => (v === true ? 'TRUE' : v === false ? 'FALSE' : NA);
+            const arrStr = (arr) => Array.isArray(arr) && arr.length > 0 ? `- ${arr.join('\n- ')}` : NA;
+            const getPingField = (inst, field) => {
+                const p = inst.ping || {};
+                switch (field) {
+                    case 'Uptime': return p.uptime ?? NA;
+                    case 'DataRead': return p.dataRead ?? NA;
+                    case 'DataSent': return p.dataSent ?? NA;
+                    case 'DataPurge': return p.dataPurged ?? NA;
+                    case 'Authentication Optional': return boolStr(p.authenticationOptional);
+                    case 'Service Name': return p.serviceName ?? NA;
+                    case 'Hostname': return p.hostName ?? NA;
+                    case 'IP Addresses': return arrStr(p.ipAddresses);
+                    case 'Health': return p.health ?? NA;
+                    case 'Safe Mode': return boolStr(p.safeMode);
+                    case 'Version': return p.version ?? NA;
+                    case 'Alerts': return p.alerts ?? NA;
+                    default: return NA;
                 }
             };
 
-            const unwrap = (settled) => settled.status === 'fulfilled' ? settled.value : { error: settled.reason?.message || 'Unknown error' };
+            const statsKeys = ['BUFFERED', 'DISCARDED', 'PURGED', 'READINGS', 'UNSENT', 'UNSNPURGED'];
 
-            const rows = [
-                ['Instance', activeInstance.url],
-                ['Timestamp', new Date().toISOString()],
-                ['', ''],
-                ['PING', safe(unwrap(ping))],
-                ['', ''],
-                ['STATISTICS', safe(unwrap(stats))],
-                ['', ''],
-                ['ASSETS', safe(unwrap(assets))]
-            ];
+            // Build rows
+            const rows = [];
+            // Header timestamp
+            rows.push(['Last Updated  at Timestamp', '', nowIso, ...Array(Math.max(0, colCount - 3)).fill('')]);
+            // Spacer
+            rows.push(Array(colCount).fill(''));
+            // Instance SNo.
+            rows.push(['Instance SNo.', '', ...instanceUrls.map((_, i) => i + 1)]);
+            // Instance URL
+            rows.push(['Instance URL', '', ...instanceUrls]);
+            // Spacer
+            rows.push(Array(colCount).fill(''));
+
+            // Ping block
+            const pingFields = ['Uptime', 'DataRead', 'DataSent', 'DataPurge', 'Authentication Optional', 'Service Name', 'Hostname', 'IP Addresses', 'Health', 'Safe Mode', 'Version', 'Alerts'];
+            pingFields.forEach((field, idx) => {
+                const values = perInstanceResults.map(inst => getPingField(inst, field));
+                rows.push([idx === 0 ? 'Ping' : '', field, ...values]);
+            });
+            // Spacer
+            rows.push(Array(colCount).fill(''));
+
+            // Statistics block
+            statsKeys.forEach((key, idx) => {
+                const values = perInstanceResults.map(inst => {
+                    const v = inst.statsMap.get(key);
+                    return v == null ? NA : v;
+                });
+                rows.push([idx === 0 ? 'Statistics' : '', key, ...values]);
+            });
+            // Spacer
+            rows.push(Array(colCount).fill(''));
+
+            // Assets block
+            const allAssetNames = new Set();
+            for (const inst of perInstanceResults) {
+                for (const name of inst.assetsMap.keys()) allAssetNames.add(name);
+            }
+            const assetNames = Array.from(allAssetNames).sort((a, b) => a.localeCompare(b));
+            // Header for assets section
+            rows.push(['Assets', 'Asset Name / Counts', ...Array(instanceUrls.length).fill('')]);
+            assetNames.forEach((name) => {
+                const values = perInstanceResults.map(inst => {
+                    const v = inst.assetsMap.get(name);
+                    return v == null ? NA : v;
+                });
+                rows.push(['', name, ...values]);
+            });
+
+            // Normalize and write to sheet
+            const normalized = this.normalizeRowsForExcel(rows, colCount);
 
             await Excel.run(async (context) => {
                 const sheet = await this.ensureWorksheet(context, sheetName);
@@ -260,20 +341,17 @@ export class ExcelIntegrationManager {
                     await context.sync();
                 }
 
-                const range = sheet.getRangeByIndexes(0, 0, rows.length, 2);
-                range.values = rows;
+                const range = sheet.getRangeByIndexes(0, 0, normalized.length, colCount);
+                range.values = normalized;
                 await context.sync();
 
-                logMessage('info', 'Minimal status export done', { sheet: sheetName, rows: rows.length });
+                logMessage('info', 'Multi-instance status export done', { sheet: sheetName, instances: instanceUrls.length, rows: normalized.length, columns: colCount });
             });
 
             return true;
 
         } catch (error) {
-            logMessage('error', 'Status export failed', { 
-                instance: activeInstance.url,
-                error: error.message 
-            });
+            logMessage('error', 'Status export failed', { error: error.message });
             return false;
         }
     }

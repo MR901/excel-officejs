@@ -170,6 +170,9 @@ export class AssetManager {
         // Clear existing options
         assetSelect.innerHTML = '';
 
+        // Normalize assets to string names and de-duplicate
+        const names = this.normalizeAssetNames(Array.isArray(assets) ? assets : []);
+
         // Add default option
         const defaultOption = document.createElement('option');
         defaultOption.value = '';
@@ -177,7 +180,7 @@ export class AssetManager {
         assetSelect.appendChild(defaultOption);
 
         // Add asset options
-        assets.forEach(asset => {
+        names.forEach(asset => {
             const option = document.createElement('option');
             option.value = asset;
             option.textContent = asset;
@@ -189,6 +192,32 @@ export class AssetManager {
 
         // Sync with text input if available
         this.syncAssetInputs();
+    }
+
+    /**
+     * Normalize various asset list response shapes to an array of string names
+     * Supports: ["name"], [{asset:"name"}], [{asset_code:"name"}], [{assetCode:"name"}], [{name:"name"}]
+     * @param {Array} assets
+     * @returns {Array<string>} unique, sorted asset names
+     */
+    normalizeAssetNames(assets) {
+        const names = assets.map((item) => {
+            if (typeof item === 'string') return item;
+            if (item && typeof item === 'object') {
+                return (
+                    item.asset ||
+                    item.asset_code ||
+                    item.assetCode ||
+                    item.name ||
+                    item.code ||
+                    ''
+                );
+            }
+            return '';
+        }).filter(Boolean);
+
+        // De-duplicate and sort
+        return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
     }
 
     /**

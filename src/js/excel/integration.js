@@ -102,6 +102,13 @@ export class ExcelIntegrationManager {
 
         const context = startRange.context;
         let currentRow = 0;
+        
+        // Ensure rectangular data (all rows equal length)
+        const targetColCount = Math.max(
+            headers.length,
+            rows.reduce((max, r) => Math.max(max, Array.isArray(r) ? r.length : 0), 0)
+        );
+        const normalizedRows = this.normalizeRowsForExcel(rows, targetColCount);
 
         try {
             // Write headers if provided
@@ -117,23 +124,24 @@ export class ExcelIntegrationManager {
             }
 
             // Write data rows
-            if (rows.length > 0) {
-                const dataRange = startRange.getOffsetRange(currentRow, 0)
-                    .getResizedRange(rows.length - 1, Math.max(1, rows[0]?.length || 1) - 1);
-                
-                dataRange.values = rows;
-                
+            if (normalizedRows.length > 0) {
+                const dataRange = startRange
+                    .getOffsetRange(currentRow, 0)
+                    .getResizedRange(normalizedRows.length - 1, Math.max(1, targetColCount) - 1);
+
+                dataRange.values = normalizedRows;
+
                 if (dataFormat) {
-                    this.formatDataRows(dataRange, options);
+                    this.formatDataRows(dataRange, { ...options, headers });
                 }
             }
 
             // Auto-fit columns if requested
             if (autoFit) {
-                const totalCols = Math.max(headers.length, rows[0]?.length || 0);
+                const totalCols = Math.max(headers.length, targetColCount);
                 if (totalCols > 0) {
                     const autoFitRange = startRange.getResizedRange(
-                        Math.max(0, (headers.length > 0 ? 1 : 0) + rows.length - 1),
+                        Math.max(0, (headers.length > 0 ? 1 : 0) + normalizedRows.length - 1),
                         totalCols - 1
                     );
                     autoFitRange.format.autofitColumns();
@@ -145,7 +153,7 @@ export class ExcelIntegrationManager {
         } catch (error) {
             logMessage('error', 'Failed to write table to Excel', { 
                 error: error.message,
-                rowCount: rows.length,
+                rowCount: normalizedRows.length,
                 headerCount: headers.length
             });
             throw error;
@@ -172,21 +180,31 @@ export class ExcelIntegrationManager {
      */
     formatDataRows(dataRange, options = {}) {
         const format = dataRange.format;
-        
+
         // Basic data formatting
         format.horizontalAlignment = 'Left';
         format.verticalAlignment = 'Top';
         format.wrapText = false;
-        
-        // Apply specific formatting based on data type
-        if (options.timestampColumn) {
-            // This would require column-specific formatting
-            // For now, apply general date formatting
-            format.numberFormat = this.exportFormats.readings.dateFormat;
+
+        // Apply number format only to the timestamp column if provided
+        if (options.timestampColumn && Array.isArray(options.headers)) {
+            const tsIndex = options.headers.indexOf(options.timestampColumn);
+            if (tsIndex >= 0) {
+                const tsRange = dataRange.getColumn(tsIndex);
+                const rowCount = dataRange.getRowCount ? dataRange.getRowCount() : null;
+                // numberFormat expects a 2D array of size [rows][1]
+                // If API version doesn't provide getRowCount, approximate via values length after sync
+                const applyFormat = () => {
+                    const count = rowCount || (Array.isArray(tsRange.values) ? tsRange.values.length : 0);
+                    const fmt = this.exportFormats.readings.dateFormat;
+                    const fmtMatrix = Array(count > 0 ? count : 1).fill([fmt]);
+                    tsRange.numberFormat = fmtMatrix;
+                };
+                applyFormat();
+            }
         }
-        
-        // Zebra striping for better readability
-        // Note: This would require row-by-row formatting for true zebra effect
+
+        // Subtle borders for readability
         format.borders.getItem('InsideHorizontal').style = 'Continuous';
         format.borders.getItem('InsideHorizontal').color = '#D1D5DB';
     }
@@ -538,6 +556,42 @@ export class ExcelIntegrationManager {
         }
         
         return true;
+    }
+
+    /**
+     * Ensure all rows have equal column count and primitive values only
+     * @param {Array} rows - Original rows
+     * @param {number} colCount - Target column count
+     * @returns {Array} Normalized rows
+     */
+    normalizeRowsForExcel(rows, colCount) {
+        if (!Array.isArray(rows) || rows.length === 0) return [];
+        return rows.map((row) => {
+            const out = Array.isArray(row) ? [...row] : [String(row ?? '')];
+            // Coerce each cell to acceptable types and truncate long strings
+            for (let i = 0; i < out.length; i++) {
+                const cell = out[i];
+                if (cell === null || cell === undefined) {
+                    out[i] = '';
+                } else if (typeof cell === 'string' || typeof cell === 'number' || typeof cell === 'boolean') {
+                    out[i] = cell;
+                } else if (cell instanceof Date) {
+                    out[i] = cell.toISOString();
+                } else {
+                    out[i] = String(cell);
+                }
+                if (typeof out[i] === 'string' && out[i].length > 32000) {
+                    out[i] = this.truncateForExcel(out[i], 30000);
+                }
+            }
+            // Pad or trim to target column count
+            if (out.length < colCount) {
+                while (out.length < colCount) out.push('');
+            } else if (out.length > colCount) {
+                out.length = colCount;
+            }
+            return out;
+        });
     }
 
     /**

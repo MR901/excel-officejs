@@ -9,7 +9,16 @@ const url = require('url');
 
 // Configuration
 const PROXY_PORT = 3001;
-const CORS_ORIGIN = 'https://mr901.github.io'; // Your Excel add-in origin
+// Allow multiple origins commonly used by Excel Web and local dev
+const ALLOWED_ORIGINS = new Set([
+    'https://mr901.github.io',
+    'https://excel.officeapps.live.com',
+    'https://office.live.com',
+    'https://www.office.com',
+    'https://*.sharepoint.com',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+]);
 
 // Dynamic FogLAMP instances - will be populated at runtime
 let INSTANCES = {
@@ -19,8 +28,17 @@ let INSTANCES = {
 // Note: Instances are updated dynamically via the /config POST endpoint
 
 // CORS headers
-function setCORSHeaders(res) {
-    res.setHeader('Access-Control-Allow-Origin', CORS_ORIGIN);
+function setCORSHeaders(res, req) {
+    const reqOrigin = req && req.headers && req.headers.origin;
+    let allowOrigin = 'https://mr901.github.io';
+    if (reqOrigin) {
+        // Simple wildcard support for *.sharepoint.com
+        const isSharePoint = /https?:\/\/([a-z0-9-]+\.)*sharepoint\.com$/i.test(reqOrigin);
+        if (ALLOWED_ORIGINS.has(reqOrigin) || isSharePoint) {
+            allowOrigin = reqOrigin;
+        }
+    }
+    res.setHeader('Access-Control-Allow-Origin', allowOrigin);
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -70,7 +88,7 @@ const server = http.createServer((req, res) => {
 
     // Handle CORS preflight
     if (req.method === 'OPTIONS') {
-        setCORSHeaders(res);
+        setCORSHeaders(res, req);
         res.writeHead(200);
         res.end();
         return;
@@ -78,7 +96,7 @@ const server = http.createServer((req, res) => {
 
     // Health check endpoint
     if (pathname === '/health') {
-        setCORSHeaders(res);
+        setCORSHeaders(res, req);
         res.writeHead(200, {'Content-Type': 'application/json'});
         res.end(JSON.stringify({
             status: 'ok',
@@ -90,7 +108,7 @@ const server = http.createServer((req, res) => {
 
     // Configuration endpoint - allows Excel add-in to update proxy instances
     if (pathname === '/config') {
-        setCORSHeaders(res);
+        setCORSHeaders(res, req);
         
         if (req.method === 'GET') {
             // Return current configuration
@@ -155,7 +173,7 @@ const server = http.createServer((req, res) => {
     }
 
     // 404 for unknown routes
-    setCORSHeaders(res);
+    setCORSHeaders(res, req);
     res.writeHead(404, {'Content-Type': 'application/json'});
     
     // Generate dynamic examples based on current instances
@@ -177,7 +195,7 @@ const server = http.createServer((req, res) => {
 server.listen(PROXY_PORT, () => {
     console.log('🚀 FogLAMP Proxy Server started');
     console.log(`📡 Listening on: http://localhost:${PROXY_PORT}`);
-    console.log(`🌐 CORS enabled for: ${CORS_ORIGIN}`);
+    console.log(`🌐 CORS dynamic origins enabled`);
     console.log('\n📋 Available endpoints:');
     
     Object.keys(INSTANCES).forEach(name => {

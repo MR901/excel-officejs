@@ -156,7 +156,7 @@ export class InstancePingManager {
             // Record ping history
             this.recordPingHistory(url, pingResult);
 
-            logMessage('error', 'Ping failed', { url, error: errorMessage, pingMs });
+            logMessage('error', 'Ping failed', { url, error: errorMessage, pingMs: errorPingMs });
 
             return pingResult;
         }

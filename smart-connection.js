@@ -162,6 +162,9 @@ class SmartFogLAMPManager {
     // Check if proxy server is available and configure it
     async checkProxyAvailability() {
         try {
+            // Ensure we have the latest registered instances before configuring proxy
+            this.loadUserRegisteredInstances();
+
             const controller = new AbortController();
             setTimeout(() => controller.abort(), this.PROXY_TIMEOUT_MS);
 

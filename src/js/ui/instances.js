@@ -69,8 +69,6 @@ export class InstanceListManager {
             emptyState.style.display = 'none';
         }
 
-        emptyState.style.display = 'none';
-
         // Sort instances: active first, then by reachability and ping time
         const sortedInstances = this.sortInstances(instances, activeUrl);
 

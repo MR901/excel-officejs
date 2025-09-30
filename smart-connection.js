@@ -397,6 +397,16 @@ class SmartFogLAMPManager {
 
     // Smart fetch with automatic fallback
     async smartFetch(endpoint, options = {}) {
+        // Ensure we have up-to-date discovery before fetching
+        if (this.availableInstances.size === 0) {
+            try {
+                this.detectEnvironment();
+                await this.discoverInstances();
+            } catch (e) {
+                console.log('Discovery before smartFetch failed:', e.message);
+            }
+        }
+
         const sortedInstances = this.getAvailableInstances();
         
         if (sortedInstances.length === 0) {

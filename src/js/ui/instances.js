@@ -42,18 +42,31 @@ export class InstanceListManager {
      */
     renderInstanceList() {
         const container = elements.instancesContainer();
-        const emptyState = elements.emptyInstances();
-        if (!container || !emptyState) return;
+        let emptyState = elements.emptyInstances();
+        if (!container) return;
 
         const instances = getEnhancedInstances();
         const activeUrl = getActiveInstance();
 
-        // Clear container and remove existing event listeners
-        container.innerHTML = '';
-
+        // Show empty state without removing it from DOM
         if (instances.length === 0) {
+            // Ensure empty state exists even if container was cleared before
+            if (!emptyState) {
+                emptyState = document.createElement('div');
+                emptyState.id = 'empty-instances';
+                emptyState.className = 'empty-state';
+                emptyState.textContent = 'No instances yet. Add a FogLAMP URL to begin.';
+                container.appendChild(emptyState);
+            }
             emptyState.style.display = 'block';
             return;
+        }
+
+        // Clear container for fresh render
+        container.innerHTML = '';
+        // Hide empty state if it exists
+        if (emptyState) {
+            emptyState.style.display = 'none';
         }
 
         emptyState.style.display = 'none';

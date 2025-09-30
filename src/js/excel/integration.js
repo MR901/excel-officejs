@@ -132,7 +132,7 @@ export class ExcelIntegrationManager {
                 dataRange.values = normalizedRows;
 
                 if (dataFormat) {
-                    this.formatDataRows(dataRange, { ...options, headers });
+                    this.formatDataRows(dataRange, { ...options, headers, rowsCount: normalizedRows.length });
                 }
             }
 
@@ -191,16 +191,11 @@ export class ExcelIntegrationManager {
             const tsIndex = options.headers.indexOf(options.timestampColumn);
             if (tsIndex >= 0) {
                 const tsRange = dataRange.getColumn(tsIndex);
-                const rowCount = dataRange.getRowCount ? dataRange.getRowCount() : null;
+                const fmt = this.exportFormats.readings.dateFormat;
+                const count = Math.max(1, Number(options.rowsCount) || 1);
                 // numberFormat expects a 2D array of size [rows][1]
-                // If API version doesn't provide getRowCount, approximate via values length after sync
-                const applyFormat = () => {
-                    const count = rowCount || (Array.isArray(tsRange.values) ? tsRange.values.length : 0);
-                    const fmt = this.exportFormats.readings.dateFormat;
-                    const fmtMatrix = Array(count > 0 ? count : 1).fill([fmt]);
-                    tsRange.numberFormat = fmtMatrix;
-                };
-                applyFormat();
+                const fmtMatrix = Array(count).fill([fmt]);
+                tsRange.numberFormat = fmtMatrix;
             }
         }
 
@@ -236,15 +231,15 @@ export class ExcelIntegrationManager {
 
             await Excel.run(async (context) => {
                 const sheet = await this.ensureWorksheet(context, safeSheetName);
-                sheet.load("usedRange");
+                const used = sheet.getUsedRangeOrNullObject(true);
                 await context.sync();
-                
-                // Clear existing content
-                if (sheet.usedRange) {
-                    sheet.usedRange.clear();
+
+                // Clear existing content if any
+                if (!used.isNullObject) {
+                    used.clear();
                     await context.sync();
                 }
-                
+
                 const start = sheet.getRange("A1");
 
                 // Prepare status data
@@ -324,6 +319,12 @@ export class ExcelIntegrationManager {
 
             await Excel.run(async (context) => {
                 const sheet = await this.ensureWorksheet(context, sheetName);
+                const used = sheet.getUsedRangeOrNullObject(true);
+                await context.sync();
+                if (!used.isNullObject) {
+                    used.clear();
+                    await context.sync();
+                }
                 const start = sheet.getRange("A1");
                 
                 // Process readings data

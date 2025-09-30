@@ -334,6 +334,7 @@ export class ExcelIntegrationManager {
             await Excel.run(async (context) => {
                 const sheet = await this.ensureWorksheet(context, sheetName);
                 const used = sheet.getUsedRangeOrNullObject(true);
+                used.load('isNullObject');
                 await context.sync();
 
                 if (!used.isNullObject) {
@@ -399,6 +400,7 @@ export class ExcelIntegrationManager {
             await Excel.run(async (context) => {
                 const sheet = await this.ensureWorksheet(context, sheetName);
                 const used = sheet.getUsedRangeOrNullObject(true);
+                used.load('isNullObject');
                 await context.sync();
                 if (!used.isNullObject) {
                     used.clear();

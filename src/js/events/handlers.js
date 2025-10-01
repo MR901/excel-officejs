@@ -753,7 +753,15 @@ export class EventHandlerManager {
                 .map(id => document.getElementById(id))
                 .filter(Boolean);
             radios.forEach(r => r.addEventListener('change', () => this.updateReadingsModeUI()));
+
+            // Output type radios for visibility toggles
+            const otRadios = ['fl-ot-raw','fl-ot-summary','fl-ot-timespan','fl-ot-series']
+                .map(id => document.getElementById(id))
+                .filter(Boolean);
+            otRadios.forEach(r => r.addEventListener('change', () => this.updateReadingsVisibility()));
+
             this.updateReadingsModeUI();
+            this.updateReadingsVisibility();
             this.updateReadingsSummary();
         } catch (_e) {}
     }
@@ -791,6 +799,30 @@ export class EventHandlerManager {
             }
 
             this.updateReadingsSummary();
+        } catch (_e) {}
+    }
+
+    updateReadingsVisibility() {
+        try {
+            const otEl = document.querySelector('input[name="fl-ot"]:checked');
+            const ot = otEl ? otEl.value : 'raw';
+            const show = (id, visible) => {
+                const row = document.getElementById(id);
+                if (row) row.style.display = visible ? 'block' : 'none';
+            };
+            // Sections
+            // Mode selector is only relevant for Raw and Series
+            show('fl-mode-section', ot === 'raw' || ot === 'series');
+            // Datapoint/Limit/Skip visible for Raw; for Series, only datapoint
+            show('fl-dp-limit-row', ot === 'raw' || ot === 'series');
+            show('fl-skip-row', ot === 'raw');
+            // Time window rows visible for Raw (when mode=window) and Series (always time-based)
+            const mode = this.getSelectedReadingsMode();
+            const timeRowsVisible = (ot === 'series') || (ot === 'raw' && mode === 'window');
+            show('fl-timewindow-row', timeRowsVisible);
+            show('fl-previous-row', timeRowsVisible);
+            // Aggregation visible for Raw and Series
+            show('fl-agg-row', ot === 'raw' || ot === 'series');
         } catch (_e) {}
     }
 

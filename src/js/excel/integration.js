@@ -24,7 +24,7 @@ export class ExcelIntegrationManager {
             },
             readings: {
                 sheetSuffix: 'data',  // Simplified for Excel sheet name compliance  
-                dateFormat: 'mm/dd/yyyy hh:mm:ss AM/PM',
+                dateFormat: 'yyyy-mm-dd hh:mm:ss.000',
                 timestampColumn: 'timestamp'
             }
         };
@@ -342,12 +342,14 @@ export class ExcelIntegrationManager {
 
                 // Formatting and merging for readability
                 try {
-                    // Timestamp row light background
+                    // Timestamp row light background and merge A1:B1
                     const tsRange = sheet.getRangeByIndexes(tsRow, 0, 1, colCount);
                     tsRange.format.fill.color = '#F3F4F6';
                     tsRange.format.font.bold = true;
                     tsRange.format.horizontalAlignment = 'Center';
                     tsRange.format.verticalAlignment = 'Center';
+                    const tsLabel = sheet.getRangeByIndexes(tsRow, 0, 1, 2);
+                    tsLabel.merge(false);
 
                     // Merge A:B for Instance SNo. and Instance URL, apply black bg and white text
                     const snoLabel = sheet.getRangeByIndexes(instanceSnoRow, 0, 1, 2);
@@ -432,7 +434,7 @@ export class ExcelIntegrationManager {
                     const POINTS_PER_EXCEL_CHAR = 5.3;
                     const widthA = Math.round(10 * POINTS_PER_EXCEL_CHAR);
                     const widthB = Math.round(18 * POINTS_PER_EXCEL_CHAR);
-                    const widthOther = widthB;
+                    const widthOther = 21.5 * POINTS_PER_EXCEL_CHAR; // value columns at 21.5 units
                     // Column A: 10 units
                     sheet.getRangeByIndexes(0, 0, 1, 1).getEntireColumn().format.columnWidth = widthA;
                     // Column B: 18 units
@@ -441,6 +443,10 @@ export class ExcelIntegrationManager {
                     for (let c = 2; c < colCount; c++) {
                         sheet.getRangeByIndexes(0, c, 1, 1).getEntireColumn().format.columnWidth = widthOther;
                     }
+
+                    // Auto-fit all row heights for the written range
+                    const allRowsRange = sheet.getRangeByIndexes(0, 0, normalized.length, colCount);
+                    allRowsRange.format.autofitRows();
                 } catch (fmtError) {
                     console.warn('Formatting error (non-fatal):', fmtError);
                 }
@@ -481,7 +487,24 @@ export class ExcelIntegrationManager {
             return false;
         }
 
-        const sheetName = `${asset}-data`.substring(0, 31);
+        // Build readings sheet name: <host/displayname up to 20><'>'><asset up to 10>
+        const buildReadingsSheetName = () => {
+            const invalid = /[\\\/\?\*\[\]:]/g; // Excel disallowed chars
+            // Prefer hostName; else derive hostname from URL; else fallback to URL
+            let leftRaw = activeInstance.hostName || '';
+            if (!leftRaw) {
+                try {
+                    leftRaw = new URL(activeInstance.url).hostname;
+                } catch (_e) {
+                    leftRaw = activeInstance.url || 'instance';
+                }
+            }
+            const left = (leftRaw || 'instance').replace(invalid, '-').substring(0, 20);
+            const right = (asset || 'asset').replace(invalid, '-').substring(0, 10);
+            const name = `${left}>${right}`;
+            return name.substring(0, 31) || 'Readings';
+        };
+        const sheetName = buildReadingsSheetName();
 
         try {
             logMessage('info', 'Starting minimal readings export', { 
@@ -513,6 +536,11 @@ export class ExcelIntegrationManager {
                 if (headers && headers.length > 0) {
                     const headerRange = sheet.getRangeByIndexes(0, 0, 1, headers.length);
                     headerRange.values = [headers];
+                    // Header styling
+                    headerRange.format.fill.color = '#E6F2FF';
+                    headerRange.format.font.bold = true;
+                    headerRange.format.horizontalAlignment = 'Center';
+                    headerRange.format.verticalAlignment = 'Center';
                 }
 
                 // Write rows
@@ -527,6 +555,15 @@ export class ExcelIntegrationManager {
                         tsRange.numberFormat = fmtMatrix;
                     } catch (_e) {}
                 }
+
+                // Column widths for Get Readings sheet
+                try {
+                    const POINTS_PER_EXCEL_CHAR = 5.3;
+                    const colAWidth = Math.round(26 * POINTS_PER_EXCEL_CHAR);
+                    const colBWidth = Math.round(11 * POINTS_PER_EXCEL_CHAR);
+                    sheet.getRangeByIndexes(0, 0, 1, 1).getEntireColumn().format.columnWidth = colAWidth;
+                    sheet.getRangeByIndexes(0, 1, 1, 1).getEntireColumn().format.columnWidth = colBWidth;
+                } catch (_e) {}
 
                 await context.sync();
                 logMessage('info', 'Minimal readings export done', { sheet: sheetName, rows: rows.length, columns: headers.length });
@@ -561,22 +598,43 @@ export class ExcelIntegrationManager {
      * @returns {Object} Export parameters with validation
      */
     getExportParameters() {
+        const modeEl = document.querySelector('input[name="fl-mode"]:checked');
+        const mode = modeEl ? modeEl.value : 'latest';
+
         const params = {
             datapoint: elements.datapoint()?.value?.trim() || '',
             limit: Math.max(1, Math.min(10000, parseInt(elements.limit()?.value || '100', 10))),
             skip: Math.max(0, parseInt(elements.skip()?.value || '0', 10)),
-            seconds: parseInt(elements.seconds()?.value || '-1', 10),
-            minutes: parseInt(elements.minutes()?.value || '-1', 10),
-            hours: parseInt(elements.hours()?.value || '-1', 10),
-            previous: parseInt(elements.previous()?.value || '-1', 10)
+            seconds: -1,
+            minutes: -1,
+            hours: -1,
+            previous: -1,
+            mode
         };
 
-        // Validation
-        const timeParams = [params.seconds, params.minutes, params.hours].filter(p => p > 0);
         const errors = [];
-        
-        if (timeParams.length > 1) {
-            errors.push('Use only one time window parameter (seconds, minutes, or hours)');
+
+        if (mode === 'latest') {
+            // latest uses limit/skip only
+        } else if (mode === 'window') {
+            const secs = parseInt(elements.seconds()?.value || '0', 10);
+            const mins = parseInt(elements.minutes()?.value || '0', 10);
+            const hrs = parseInt(elements.hours()?.value || '0', 10);
+            const chosen = [secs > 0, mins > 0, hrs > 0].filter(Boolean).length;
+            if (chosen !== 1) {
+                errors.push('Select exactly one time window: seconds OR minutes OR hours');
+            } else {
+                params.seconds = secs > 0 ? secs : -1;
+                params.minutes = mins > 0 ? mins : -1;
+                params.hours = hrs > 0 ? hrs : -1;
+            }
+        } else if (mode === 'previous') {
+            const prev = parseInt(elements.previous()?.value || '0', 10);
+            if (prev <= 0) {
+                errors.push('Provide a positive value for previous');
+            } else {
+                params.previous = prev;
+            }
         }
 
         return {

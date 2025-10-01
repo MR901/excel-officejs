@@ -104,6 +104,14 @@
                             <div class="small muted">Asset data → formatted sheet</div>
             </div>
             <div class="row">
+                            <label class="small" style="margin-bottom: 4px;">Mode</label>
+                <div class="stack" style="gap: 6px;">
+                    <label class="small"><input type="radio" name="fl-mode" id="fl-mode-latest" value="latest" checked /> Latest (limit/skip)</label>
+                    <label class="small"><input type="radio" name="fl-mode" id="fl-mode-window" value="window" /> Time window (choose seconds OR minutes OR hours)</label>
+                    <label class="small"><input type="radio" name="fl-mode" id="fl-mode-previous" value="previous" /> Previous window(s)</label>
+                </div>
+            </div>
+            <div class="row">
                             <div class="stack">
                                 <select id="fl-asset-select" title="Select asset from available assets">
                                     <option value="">Loading assets...</option>
@@ -130,6 +138,9 @@
             </div>
             <div class="row">
                             <input id="fl-previous" type="number" min="1" placeholder="previous (for historical)" />
+            </div>
+            <div class="row">
+                            <div id="fl-readings-summary" class="small muted"></div>
             </div>
             <div class="row">
                             <button id="fl-get-readings" type="button" title="Export asset readings to Excel sheet">Get Readings</button>

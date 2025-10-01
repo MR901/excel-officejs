@@ -29,6 +29,7 @@ export class EventHandlerManager {
         
         // Setup all event listeners
         this.setupEventListeners();
+        this.setupReadingsModeControls();
         
         logMessage('info', 'Event handler manager initialized');
     }
@@ -365,6 +366,26 @@ export class EventHandlerManager {
                 logMessage('error', 'Export Readings function not available');
             }
         });
+
+        // Update readings summary on input changes
+        ;['fl-asset-select','fl-asset','fl-datapoint','fl-limit','fl-skip','fl-seconds','fl-minutes','fl-hours','fl-previous']
+            .forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', () => this.updateReadingsSummary());
+                    el.addEventListener('change', () => this.updateReadingsSummary());
+                }
+            });
+
+        // Update readings summary on input changes
+        ['fl-asset-select','fl-asset','fl-datapoint','fl-limit','fl-skip','fl-seconds','fl-minutes','fl-hours','fl-previous']
+            .forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', () => this.updateReadingsSummary());
+                    el.addEventListener('change', () => this.updateReadingsSummary());
+                }
+            });
 
         // Clear Console
         this.addEventListenerSafely('clear-console', 'click', () => {
@@ -719,6 +740,85 @@ export class EventHandlerManager {
      */
     async fetchAssetsData() {
         return await window.FogLAMP.api.assets();
+    }
+
+    /**
+     * =============================
+     * Readings Mode UX helpers
+     * =============================
+     */
+    setupReadingsModeControls() {
+        try {
+            const radios = ['fl-mode-latest','fl-mode-window','fl-mode-previous']
+                .map(id => document.getElementById(id))
+                .filter(Boolean);
+            radios.forEach(r => r.addEventListener('change', () => this.updateReadingsModeUI()));
+            this.updateReadingsModeUI();
+            this.updateReadingsSummary();
+        } catch (_e) {}
+    }
+
+    getSelectedReadingsMode() {
+        const modeEl = document.querySelector('input[name="fl-mode"]:checked');
+        return modeEl ? modeEl.value : 'latest';
+    }
+
+    updateReadingsModeUI() {
+        try {
+            const mode = this.getSelectedReadingsMode();
+            const seconds = document.getElementById('fl-seconds');
+            const minutes = document.getElementById('fl-minutes');
+            const hours = document.getElementById('fl-hours');
+            const previous = document.getElementById('fl-previous');
+            const limit = document.getElementById('fl-limit');
+            const skip = document.getElementById('fl-skip');
+
+            const setEnabled = (el, enabled) => {
+                if (!el) return;
+                el.disabled = !enabled;
+                if (el.parentElement) el.parentElement.style.opacity = enabled ? '1' : '0.6';
+            };
+
+            if (mode === 'latest') {
+                setEnabled(seconds, false); setEnabled(minutes, false); setEnabled(hours, false); setEnabled(previous, false);
+                setEnabled(limit, true); setEnabled(skip, true);
+            } else if (mode === 'window') {
+                setEnabled(seconds, true); setEnabled(minutes, true); setEnabled(hours, true); setEnabled(previous, false);
+                setEnabled(limit, true); setEnabled(skip, true);
+            } else {
+                setEnabled(seconds, false); setEnabled(minutes, false); setEnabled(hours, false); setEnabled(previous, true);
+                setEnabled(limit, true); setEnabled(skip, true);
+            }
+
+            this.updateReadingsSummary();
+        } catch (_e) {}
+    }
+
+    updateReadingsSummary() {
+        try {
+            const el = document.getElementById('fl-readings-summary');
+            if (!el) return;
+            const mode = this.getSelectedReadingsMode();
+            const asset = elements.assetSelect()?.value || elements.asset()?.value || '';
+            const datapoint = elements.datapoint()?.value?.trim() || '';
+            const limit = elements.limit()?.value || '100';
+            const skip = elements.skip()?.value || '0';
+            const seconds = elements.seconds()?.value || '';
+            const minutes = elements.minutes()?.value || '';
+            const hours = elements.hours()?.value || '';
+            const previous = elements.previous()?.value || '';
+            let timePart = '';
+            if (mode === 'window') {
+                if (seconds) timePart = `${seconds}s`;
+                if (minutes) timePart = `${minutes}m`;
+                if (hours) timePart = `${hours}h`;
+            } else if (mode === 'previous') {
+                timePart = `previous=${previous}`;
+            } else {
+                timePart = `limit=${limit}, skip=${skip}`;
+            }
+            el.textContent = `Mode: ${mode} • Asset: ${asset || '—'}${datapoint ? `.${datapoint}` : ''} • ${timePart}`;
+        } catch (_e) {}
     }
 
     /**

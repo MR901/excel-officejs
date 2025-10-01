@@ -78,8 +78,8 @@ export class InstancePingManager {
             
             logMessage('info', 'Using unified API for ping', { url });
             
-            // STREAMLINED: Single API path only
-            data = await window.FogLAMP.api.ping();
+            // STREAMLINED: Use explicit per-URL call to avoid active-instance leakage
+            data = await window.FogLAMP.api.pingForUrl(url);
             
             const endTime = performance.now();
             const pingMs = Math.round(endTime - startTime);
@@ -469,9 +469,9 @@ export class InstancePingManager {
             let syncCount = 0;
             
             registeredUrls.forEach(url => {
-                // Find matching smart manager instance by URL
+                // Find matching smart manager instance by exact URL only
                 const smartInstance = Array.from(smartInstances.values()).find(inst => 
-                    inst.url === url || inst.name.includes(url)
+                    inst.url === url
                 );
                 
                 if (smartInstance) {

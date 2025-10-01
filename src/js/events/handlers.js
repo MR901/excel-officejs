@@ -295,11 +295,12 @@ export class EventHandlerManager {
                 this.updateSummaryDisplay(summaryElement, "Loading instance details...");
             }
 
-            // Fetch comprehensive data
+            // Fetch comprehensive data for the currently active instance URL explicitly
+            const activeUrl = window.getActiveInstance ? window.getActiveInstance() : (activeInstance?.url || null);
             const [ping, stats, assets] = await Promise.allSettled([
-                this.fetchPingData(),
-                this.fetchStatisticsData(), 
-                this.fetchAssetsData()
+                activeUrl ? window.FogLAMP.api.pingForUrl(activeUrl) : this.fetchPingData(),
+                activeUrl ? window.FogLAMP.api.statisticsForUrl(activeUrl) : this.fetchStatisticsData(), 
+                activeUrl ? window.FogLAMP.api.assetsForUrl(activeUrl) : this.fetchAssetsData()
             ]);
 
             // Prepare summary data

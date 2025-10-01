@@ -51,34 +51,18 @@ export class ExcelIntegrationManager {
      * @returns {Promise<Object>} Excel worksheet object
      */
     async ensureWorksheet(context, name) {
-        // Check cache first
-        if (this.worksheetCache.has(name)) {
-            try {
-                const cachedSheet = this.worksheetCache.get(name);
-                cachedSheet.load("name");
-                await context.sync();
-                return cachedSheet;
-            } catch (error) {
-                // Cache invalid, remove it
-                this.worksheetCache.delete(name);
-            }
-        }
-
+        // Do NOT cache sheet objects across contexts; reacquire each time
         const sheets = context.workbook.worksheets;
         let sheet;
-        
         try {
             sheet = sheets.getItem(name);
             sheet.load("name");
             await context.sync();
-        } catch (error) {
-            // Sheet doesn't exist, create it
+        } catch (_e) {
             sheet = sheets.add(name);
             await context.sync();
         }
-
-        // Cache the sheet
-        this.worksheetCache.set(name, sheet);
+        try { sheet.activate(); } catch (_e) {}
         return sheet;
     }
 
@@ -443,14 +427,19 @@ export class ExcelIntegrationManager {
                         valueCols.format.verticalAlignment = 'Center';
                     }
 
-                    // Column widths
-                    // Column A: 10
-                    sheet.getRangeByIndexes(0, 0, 1, 1).getEntireColumn().format.columnWidth = 10;
-                    // Column B: 18
-                    sheet.getRangeByIndexes(0, 1, 1, 1).getEntireColumn().format.columnWidth = 18;
-                    // Columns C..: 18
+                    // Column widths (convert Excel default units → points)
+                    // Approximate: 1 Excel char ~ 7 px, 1 pt ~ 1.333 px → ~5.3 pt per unit
+                    const POINTS_PER_EXCEL_CHAR = 5.3;
+                    const widthA = Math.round(10 * POINTS_PER_EXCEL_CHAR);
+                    const widthB = Math.round(18 * POINTS_PER_EXCEL_CHAR);
+                    const widthOther = widthB;
+                    // Column A: 10 units
+                    sheet.getRangeByIndexes(0, 0, 1, 1).getEntireColumn().format.columnWidth = widthA;
+                    // Column B: 18 units
+                    sheet.getRangeByIndexes(0, 1, 1, 1).getEntireColumn().format.columnWidth = widthB;
+                    // Columns C..: 18 units
                     for (let c = 2; c < colCount; c++) {
-                        sheet.getRangeByIndexes(0, c, 1, 1).getEntireColumn().format.columnWidth = 18;
+                        sheet.getRangeByIndexes(0, c, 1, 1).getEntireColumn().format.columnWidth = widthOther;
                     }
                 } catch (fmtError) {
                     console.warn('Formatting error (non-fatal):', fmtError);

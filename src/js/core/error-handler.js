@@ -195,11 +195,12 @@ export class OfficeErrorHandler {
     showFallbackError(errorDetails) {
         const fallbackMessage = `${errorDetails.title}\n\n${errorDetails.message}\n\nPlatform: ${errorDetails.platform}`;
         
-        // Try different fallback methods
-        if (typeof alert !== 'undefined') {
-            alert(fallbackMessage);
-        } else if (console.error) {
+        // Non-blocking fallback: log to console and UI console area
+        if (console.error) {
             console.error('ERROR DISPLAY:', fallbackMessage);
+        }
+        if (window.logMessage) {
+            window.logMessage('error', errorDetails.title, { error: errorDetails.message, platform: errorDetails.platform });
         }
     }
 

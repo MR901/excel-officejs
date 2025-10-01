@@ -484,6 +484,9 @@ export class ExcelIntegrationManager {
         const exportParams = this.getExportParameters();
         if (!exportParams.valid) {
             logMessage('warn', 'Export Readings: invalid parameters', exportParams.errors);
+            if (window.FogLAMP?.errors) {
+                await window.FogLAMP.errors.showError('Invalid parameters', exportParams.errors.join('\n'));
+            }
             return false;
         }
 
@@ -611,8 +614,6 @@ export class ExcelIntegrationManager {
             minutes: -1,
             hours: -1,
             previous: -1,
-            aggregate: elements.aggregate()?.value || '',
-            group: elements.group()?.value?.trim() || '',
             mode,
             outputType
         };
@@ -621,6 +622,8 @@ export class ExcelIntegrationManager {
         
         if (mode === 'latest') {
             // latest uses limit/skip only
+            // Ensure time-based params are not set
+            params.seconds = -1; params.minutes = -1; params.hours = -1; params.previous = -1;
         } else if (mode === 'window') {
             const secs = parseInt(elements.seconds()?.value || '0', 10);
             const mins = parseInt(elements.minutes()?.value || '0', 10);
@@ -633,6 +636,8 @@ export class ExcelIntegrationManager {
                 params.minutes = mins > 0 ? mins : -1;
                 params.hours = hrs > 0 ? hrs : -1;
             }
+            // Remove limit/skip when using time-based selection
+            params.limit = undefined; params.skip = undefined;
         } else if (mode === 'previous') {
             const prev = parseInt(elements.previous()?.value || '0', 10);
             if (prev <= 0) {
@@ -640,6 +645,20 @@ export class ExcelIntegrationManager {
             } else {
                 params.previous = prev;
             }
+            // Require one time unit when previous is used
+            const secs = parseInt(elements.seconds()?.value || '0', 10);
+            const mins = parseInt(elements.minutes()?.value || '0', 10);
+            const hrs = parseInt(elements.hours()?.value || '0', 10);
+            const chosen = [secs > 0, mins > 0, hrs > 0].filter(Boolean).length;
+            if (chosen !== 1) {
+                errors.push('Previous requires one time unit: seconds OR minutes OR hours');
+            } else {
+                params.seconds = secs > 0 ? secs : -1;
+                params.minutes = mins > 0 ? mins : -1;
+                params.hours = hrs > 0 ? hrs : -1;
+            }
+            // Remove limit/skip when using time-based selection
+            params.limit = undefined; params.skip = undefined;
         }
 
         return {
@@ -1065,23 +1084,30 @@ export class ExcelIntegrationManager {
     async fetchReadingsData(asset, params) {
         const datapoint = params.datapoint && params.datapoint.trim() !== '' ? params.datapoint : null;
         const queryParams = {};
-        if (params.limit && params.limit > 0) queryParams.limit = params.limit;
-        if (params.skip && params.skip > 0) queryParams.skip = params.skip;
+        // Only include limit/skip in latest mode
+        if (params.mode === 'latest') {
+            if (params.limit && params.limit > 0) queryParams.limit = params.limit;
+            if (params.skip && params.skip > 0) queryParams.skip = params.skip;
+        }
         if (params.seconds && params.seconds > 0) queryParams.seconds = params.seconds;
         if (params.minutes && params.minutes > 0) queryParams.minutes = params.minutes;
         if (params.hours && params.hours > 0) queryParams.hours = params.hours;
         if (params.previous && params.previous > 0) queryParams.previous = params.previous;
-        if (params.aggregate) queryParams.aggregate = params.aggregate;
-        if (params.group) queryParams.group = params.group;
 
         // Route based on output type
         const ot = params.outputType || 'raw';
         if (ot === 'summary') {
+            if (!datapoint) {
+                throw new Error('Summary requires a datapoint selection');
+            }
             return await window.FogLAMP.api.readingsSummary(asset, datapoint, queryParams);
         } else if (ot === 'timespan') {
+            // timespan is available for asset overall or specific datapoint; supports no aggregate/group
             return await window.FogLAMP.api.readingsTimespan(asset, datapoint, queryParams);
         } else if (ot === 'series') {
-            // For series, prefer time-based params; limit/skip are not applicable generally
+            if (!datapoint) {
+                throw new Error('Series requires a datapoint selection');
+            }
             return await window.FogLAMP.api.readingsSeries(asset, datapoint, queryParams);
         }
 

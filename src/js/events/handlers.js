@@ -375,7 +375,7 @@ export class EventHandlerManager {
             });
 
         // Update readings summary on input changes
-        ['fl-asset-select','fl-asset','fl-datapoint','fl-limit','fl-skip','fl-seconds','fl-minutes','fl-hours','fl-previous','fl-aggregate','fl-group','fl-ot-raw','fl-ot-summary','fl-ot-timespan','fl-ot-series']
+        ['fl-asset-select','fl-asset','fl-datapoint','fl-limit','fl-skip','fl-seconds','fl-minutes','fl-hours','fl-previous','fl-ot-raw','fl-ot-summary','fl-ot-timespan','fl-ot-series']
             .forEach(id => {
                 const el = document.getElementById(id);
                 if (el) {
@@ -787,10 +787,13 @@ export class EventHandlerManager {
                 setEnabled(limit, true); setEnabled(skip, true);
             } else if (mode === 'window') {
                 setEnabled(seconds, true); setEnabled(minutes, true); setEnabled(hours, true); setEnabled(previous, false);
-                setEnabled(limit, true); setEnabled(skip, true);
-            } else {
-                setEnabled(seconds, false); setEnabled(minutes, false); setEnabled(hours, false); setEnabled(previous, true);
-                setEnabled(limit, true); setEnabled(skip, true);
+                // When using time windows, limit/skip must not be combined
+                setEnabled(limit, false); setEnabled(skip, false);
+            } else { // previous
+                // For previous mode, a time unit is required along with previous
+                setEnabled(seconds, true); setEnabled(minutes, true); setEnabled(hours, true); setEnabled(previous, true);
+                // Do not allow limit/skip with time window selection
+                setEnabled(limit, false); setEnabled(skip, false);
             }
 
             this.updateReadingsSummary();
@@ -845,8 +848,6 @@ export class EventHandlerManager {
             const timeVisible = (ot === 'series') || (ot === 'raw' && mode !== 'latest');
             show('fl-timewindow-row', timeVisible);
             show('fl-previous-row', timeVisible);
-            // Aggregation row for raw and series
-            show('fl-agg-row', ot === 'raw' || ot === 'series');
             // Summary row always visible
             show('fl-summary-row', true);
         } catch (_e) {}

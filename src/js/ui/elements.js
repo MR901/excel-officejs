@@ -41,8 +41,6 @@ export const elements = {
     minutes: () => document.getElementById("fl-minutes"),
     hours: () => document.getElementById("fl-hours"),
     previous: () => document.getElementById("fl-previous"),
-    aggregate: () => document.getElementById("fl-aggregate"),
-    group: () => document.getElementById("fl-group"),
     getReadings: () => document.getElementById("fl-get-readings"),
 
     // Console

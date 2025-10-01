@@ -106,18 +106,18 @@
             <div class="row">
                             <label class="small" style="margin-bottom: 4px;">Output Type</label>
                 <div class="stack" style="gap: 6px;">
-                    <label class="small"><input type="radio" name="fl-ot" id="fl-ot-raw" value="raw" checked /> Raw Readings</label>
-                    <label class="small"><input type="radio" name="fl-ot" id="fl-ot-summary" value="summary" /> Summary Statistics</label>
-                    <label class="small"><input type="radio" name="fl-ot" id="fl-ot-timespan" value="timespan" /> Time Span</label>
-                    <label class="small"><input type="radio" name="fl-ot" id="fl-ot-series" value="series" /> Time Series</label>
+                    <label class="small"><input type="radio" name="fl-ot" id="fl-ot-raw" value="raw" title="Raw reading rows with timestamp and datapoints" checked /> Raw Readings</label>
+                    <label class="small"><input type="radio" name="fl-ot" id="fl-ot-summary" value="summary" title="Summary stats (e.g., min/max/avg) for a datapoint over a window" /> Summary Statistics</label>
+                    <label class="small"><input type="radio" name="fl-ot" id="fl-ot-timespan" value="timespan" title="Aggregate over a specified time span" /> Time Span</label>
+                    <label class="small"><input type="radio" name="fl-ot" id="fl-ot-series" value="series" title="Time series values suitable for charting" /> Time Series</label>
                 </div>
             </div>
             <div class="row" id="fl-mode-section">
                             <label class="small" style="margin-bottom: 4px;">Mode</label>
                 <div class="stack" style="gap: 6px;">
-                    <label class="small"><input type="radio" name="fl-mode" id="fl-mode-latest" value="latest" checked /> Latest (limit/skip)</label>
-                    <label class="small"><input type="radio" name="fl-mode" id="fl-mode-window" value="window" /> Time window (choose seconds OR minutes OR hours)</label>
-                    <label class="small"><input type="radio" name="fl-mode" id="fl-mode-previous" value="previous" /> Previous window(s)</label>
+                    <label class="small"><input type="radio" name="fl-mode" id="fl-mode-latest" value="latest" title="Use limit and optional skip to fetch most recent readings" checked /> Latest (limit/skip)</label>
+                    <label class="small"><input type="radio" name="fl-mode" id="fl-mode-window" value="window" title="Specify a time window in seconds, minutes, or hours" /> Time window (choose seconds OR minutes OR hours)</label>
+                    <label class="small"><input type="radio" name="fl-mode" id="fl-mode-previous" value="previous" title="Fetch previous N windows (historical)" /> Previous window(s)</label>
                 </div>
             </div>
             <div class="row" id="fl-asset-row">
@@ -125,34 +125,34 @@
                                 <select id="fl-asset-select" title="Select asset from available assets">
                                     <option value="">Loading assets...</option>
                                 </select>
-                                <input id="fl-asset" type="text" placeholder="or type asset name" />
+                                <input id="fl-asset" type="text" placeholder="or type asset name" title="Type asset name if not present in the dropdown" />
                             </div>
             </div>
             <div class="row" id="fl-dp-limit-row">
                             <div class="stack">
-                                <input id="fl-datapoint" type="text" placeholder="datapoint (optional)" />
-                                <input id="fl-limit" type="number" min="1" max="10000" value="100" placeholder="limit" style="max-width: 100px;" />
+                                <input id="fl-datapoint" type="text" placeholder="datapoint (optional)" title="Optional: restrict to a specific datapoint key from the asset's readings" />
+                                <input id="fl-limit" type="number" min="1" max="10000" value="100" placeholder="limit" title="Number of records to return (1-10000)" style="max-width: 100px;" />
                             </div>
             </div>
             <div class="row" id="fl-skip-row">
-                            <input id="fl-skip" type="number" min="0" value="0" placeholder="skip (pagination)" style="max-width: 120px;" />
+                            <input id="fl-skip" type="number" min="0" value="0" placeholder="skip (pagination)" title="Skip this many records (use for pagination)" style="max-width: 120px;" />
             </div>
             <div class="row" id="fl-timewindow-row">
                             <label class="small">Time window (use only one)</label>
                 <div class="stack">
-                    <input id="fl-seconds" type="number" min="1" placeholder="seconds" />
-                    <input id="fl-minutes" type="number" min="1" placeholder="minutes" />
-                    <input id="fl-hours" type="number" min="1" placeholder="hours" />
+                    <input id="fl-seconds" type="number" min="1" placeholder="seconds" title="Window size in seconds (choose only one unit)" />
+                    <input id="fl-minutes" type="number" min="1" placeholder="minutes" title="Window size in minutes (choose only one unit)" />
+                    <input id="fl-hours" type="number" min="1" placeholder="hours" title="Window size in hours (choose only one unit)" />
                 </div>
             </div>
             <div class="row" id="fl-previous-row">
-                            <input id="fl-previous" type="number" min="1" placeholder="previous (for historical)" />
+                            <input id="fl-previous" type="number" min="1" placeholder="previous (for historical)" title="Number of previous windows to retrieve (e.g., last N windows)" />
             </div>
             <div class="row" id="fl-agg-row" style="display: none;">
                             <div class="stack">
                                 <label class="small">Aggregation</label>
                                 <div class="row" style="gap: 8px; align-items: center;">
-                                    <select id="fl-aggregate" title="Aggregation function" style="max-width: 140px;">
+                                    <select id="fl-aggregate" title="Aggregation function (for raw/series output)" style="max-width: 140px;">
                                         <option value="">(none)</option>
                                         <option value="min">min</option>
                                         <option value="max">max</option>
@@ -160,30 +160,11 @@
                                         <option value="sum">sum</option>
                                         <option value="count">count</option>
                                     </select>
-                                    <input id="fl-group" type="text" placeholder="group by (optional)" style="max-width: 180px;" />
+                                    <input id="fl-group" type="text" placeholder="group by (optional)" title="Optional grouping key (e.g., time bucket or dimension)" style="max-width: 180px;" />
                                 </div>
                             </div>
             </div>
             <div class="row" id="fl-summary-row">
-                            <div id="fl-readings-summary" class="small muted"></div>
-            </div>
-            <div class="row">
-                            <div class="stack">
-                                <label class="small">Aggregation</label>
-                                <div class="row" style="gap: 8px; align-items: center;">
-                                    <select id="fl-aggregate" title="Aggregation function" style="max-width: 140px;">
-                                        <option value="">(none)</option>
-                                        <option value="min">min</option>
-                                        <option value="max">max</option>
-                                        <option value="avg">avg</option>
-                                        <option value="sum">sum</option>
-                                        <option value="count">count</option>
-                                    </select>
-                                    <input id="fl-group" type="text" placeholder="group by (optional)" style="max-width: 180px;" />
-                                </div>
-                            </div>
-            </div>
-            <div class="row">
                             <div id="fl-readings-summary" class="small muted"></div>
             </div>
             <div class="row">

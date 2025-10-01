@@ -26,11 +26,8 @@ export class EventHandlerManager {
      */
     initialize() {
         logMessage('info', 'Initializing event handler manager');
-        
-        // Setup all event listeners
         this.setupEventListeners();
         this.setupReadingsModeControls();
-        
         logMessage('info', 'Event handler manager initialized');
     }
 
@@ -872,7 +869,9 @@ export class EventHandlerManager {
      * Initialize event handler manager
      */
     initialize() {
+        // Consolidated in the main initialize above; keeping for backward compatibility
         this.setupEventListeners();
+        this.setupReadingsModeControls();
         console.log('✅ Event handler system initialized');
     }
 

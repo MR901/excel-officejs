@@ -600,6 +600,8 @@ export class ExcelIntegrationManager {
     getExportParameters() {
         const modeEl = document.querySelector('input[name="fl-mode"]:checked');
         const mode = modeEl ? modeEl.value : 'latest';
+        const otEl = document.querySelector('input[name="fl-ot"]:checked');
+        const outputType = otEl ? otEl.value : 'raw';
 
         const params = {
             datapoint: elements.datapoint()?.value?.trim() || '',
@@ -609,7 +611,10 @@ export class ExcelIntegrationManager {
             minutes: -1,
             hours: -1,
             previous: -1,
-            mode
+            aggregate: elements.aggregate()?.value || '',
+            group: elements.group()?.value?.trim() || '',
+            mode,
+            outputType
         };
 
         const errors = [];

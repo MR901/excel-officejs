@@ -751,7 +751,7 @@ export class EventHandlerManager {
                 .filter(Boolean);
             radios.forEach(r => r.addEventListener('change', () => { this.updateReadingsModeUI(); this.updateReadingsVisibility(); }));
             // Output type radios
-            const otRadios = ['fl-ot-raw','fl-ot-summary','fl-ot-timespan','fl-ot-series']
+            const otRadios = ['fl-ot-raw','fl-ot-summary','fl-ot-timespan']
                 .map(id => document.getElementById(id))
                 .filter(Boolean);
             otRadios.forEach(r => r.addEventListener('change', () => this.updateReadingsVisibility()));
@@ -837,15 +837,15 @@ export class EventHandlerManager {
                 const row = document.getElementById(id);
                 if (row) row.style.display = visible ? 'block' : 'none';
             };
-            // Mode section visible for raw and series
-            show('fl-mode-section', ot === 'raw' || ot === 'series');
+            // Mode section visible for raw only
+            show('fl-mode-section', ot === 'raw');
             // Asset row always visible
             show('fl-asset-row', true);
-            // Datapoint+limit row for raw; for series keep visible but limit disabled by mode
-            show('fl-dp-limit-row', ot === 'raw' || ot === 'series');
+            // Datapoint+limit row for raw
+            show('fl-dp-limit-row', ot === 'raw');
             show('fl-skip-row', ot === 'raw');
             const mode = this.getSelectedReadingsMode();
-            const timeVisible = (ot === 'series') || (ot === 'raw' && mode !== 'latest');
+            const timeVisible = (ot === 'raw' && mode !== 'latest');
             show('fl-timewindow-row', timeVisible);
             show('fl-previous-row', timeVisible);
             // Summary row always visible

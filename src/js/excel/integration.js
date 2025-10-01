@@ -513,7 +513,10 @@ export class ExcelIntegrationManager {
             logMessage('info', 'Starting minimal readings export', { 
                 instance: activeInstance.url,
                 asset,
-                sheet: sheetName
+                sheet: sheetName,
+                outputType: exportParams.data.outputType,
+                mode: exportParams.data.mode,
+                params: exportParams.data
             });
 
             const readings = await this.fetchReadingsData(asset, exportParams.data);
@@ -522,7 +525,19 @@ export class ExcelIntegrationManager {
                 return false;
             }
 
-            const { headers, rows } = this.buildSimpleReadings(readings, asset, exportParams.data.datapoint);
+            // Build table based on outputType
+            let headers, rows;
+            const ot = exportParams.data.outputType || 'raw';
+            if (ot === 'summary') {
+                const t = this.buildSummaryTable(readings, asset, exportParams.data.datapoint);
+                headers = t.headers; rows = t.rows;
+            } else if (ot === 'timespan') {
+                const t = this.buildTimespanTable(readings, asset, exportParams.data.datapoint);
+                headers = t.headers; rows = t.rows;
+            } else {
+                const t = this.buildSimpleReadings(readings, asset, exportParams.data.datapoint);
+                headers = t.headers; rows = t.rows;
+            }
 
             await Excel.run(async (context) => {
                 const sheet = await this.ensureWorksheet(context, sheetName);
@@ -961,6 +976,48 @@ export class ExcelIntegrationManager {
     }
 
     /**
+     * Build summary table: min/max/average for datapoint
+     * @param {Object|Array} summary - API returns object like { dp: { min, max, average } }
+     */
+    buildSummaryTable(summary, asset, datapoint) {
+        try {
+            let minVal = '', maxVal = '', avgVal = '';
+            if (summary && typeof summary === 'object') {
+                const key = datapoint;
+                const node = summary[key] || summary;
+                minVal = node.min ?? node.minimum ?? '';
+                maxVal = node.max ?? node.maximum ?? '';
+                avgVal = node.average ?? node.avg ?? '';
+            }
+            return {
+                headers: ['Asset', 'Datapoint', 'Min', 'Max', 'Average'],
+                rows: [[asset, datapoint || '', minVal, maxVal, avgVal]]
+            };
+        } catch (_e) {
+            return { headers: ['No Data'], rows: [['No summary available']] };
+        }
+    }
+
+    /**
+     * Build timespan table: oldest/newest timestamps
+     * @param {Object|Array} tsData - API returns object with oldest/newest
+     */
+    buildTimespanTable(tsData, asset, datapoint) {
+        try {
+            // Handle either object or array (single item)
+            const obj = Array.isArray(tsData) ? (tsData[0] || {}) : (tsData || {});
+            const oldest = obj.oldest ?? '';
+            const newest = obj.newest ?? '';
+            return {
+                headers: ['Asset', 'Datapoint', 'Oldest', 'Newest'],
+                rows: [[asset, datapoint || '', oldest, newest]]
+            };
+        } catch (_e) {
+            return { headers: ['No Data'], rows: [['No timespan available']] };
+        }
+    }
+
+    /**
      * Parse FogLAMP timestamp (e.g., "YYYY-MM-DD HH:MM:SS.micros") to JS Date (UTC)
      * Returns null if parsing fails
      */
@@ -1104,11 +1161,6 @@ export class ExcelIntegrationManager {
         } else if (ot === 'timespan') {
             // timespan is available for asset overall or specific datapoint; supports no aggregate/group
             return await window.FogLAMP.api.readingsTimespan(asset, datapoint, queryParams);
-        } else if (ot === 'series') {
-            if (!datapoint) {
-                throw new Error('Series requires a datapoint selection');
-            }
-            return await window.FogLAMP.api.readingsSeries(asset, datapoint, queryParams);
         }
 
         // Default: raw readings

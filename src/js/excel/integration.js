@@ -333,12 +333,12 @@ export class ExcelIntegrationManager {
                     const clearCols = Math.max(colCount + 5, 10);
                     const clearRange = sheet.getRangeByIndexes(0, 0, clearRows, clearCols);
                     clearRange.clear();
-                    await context.sync();
+                await context.sync();
                 } catch (_e) {}
 
                 const range = sheet.getRangeByIndexes(0, 0, normalized.length, colCount);
                 range.values = normalized;
-                await context.sync();
+                    await context.sync();
 
                 // Formatting and merging for readability
                 try {
@@ -513,7 +513,7 @@ export class ExcelIntegrationManager {
                 sheet: sheetName
             });
 
-        const readings = await this.fetchReadingsData(asset, exportParams.data);
+            const readings = await this.fetchReadingsData(asset, exportParams.data);
             if (!readings || readings.length === 0) {
                 logMessage('warn', 'No readings data found for export', { asset });
                 return false;
@@ -529,7 +529,7 @@ export class ExcelIntegrationManager {
                     const clearCols = Math.max(headers.length + 5, 10);
                     const clearRange = sheet.getRangeByIndexes(0, 0, clearRows, clearCols);
                     clearRange.clear();
-                    await context.sync();
+                await context.sync();
                 } catch (_e) {}
 
                 // Write headers
@@ -613,7 +613,7 @@ export class ExcelIntegrationManager {
         };
 
         const errors = [];
-
+        
         if (mode === 'latest') {
             // latest uses limit/skip only
         } else if (mode === 'window') {

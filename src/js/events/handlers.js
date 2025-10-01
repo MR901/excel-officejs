@@ -752,14 +752,12 @@ export class EventHandlerManager {
             const radios = ['fl-mode-latest','fl-mode-window','fl-mode-previous']
                 .map(id => document.getElementById(id))
                 .filter(Boolean);
-            radios.forEach(r => r.addEventListener('change', () => this.updateReadingsModeUI()));
-
-            // Output type radios for visibility toggles
+            radios.forEach(r => r.addEventListener('change', () => { this.updateReadingsModeUI(); this.updateReadingsVisibility(); }));
+            // Output type radios
             const otRadios = ['fl-ot-raw','fl-ot-summary','fl-ot-timespan','fl-ot-series']
                 .map(id => document.getElementById(id))
                 .filter(Boolean);
             otRadios.forEach(r => r.addEventListener('change', () => this.updateReadingsVisibility()));
-
             this.updateReadingsModeUI();
             this.updateReadingsVisibility();
             this.updateReadingsSummary();
@@ -802,35 +800,13 @@ export class EventHandlerManager {
         } catch (_e) {}
     }
 
-    updateReadingsVisibility() {
-        try {
-            const otEl = document.querySelector('input[name="fl-ot"]:checked');
-            const ot = otEl ? otEl.value : 'raw';
-            const show = (id, visible) => {
-                const row = document.getElementById(id);
-                if (row) row.style.display = visible ? 'block' : 'none';
-            };
-            // Sections
-            // Mode selector is only relevant for Raw and Series
-            show('fl-mode-section', ot === 'raw' || ot === 'series');
-            // Datapoint/Limit/Skip visible for Raw; for Series, only datapoint
-            show('fl-dp-limit-row', ot === 'raw' || ot === 'series');
-            show('fl-skip-row', ot === 'raw');
-            // Time window rows visible for Raw (when mode=window) and Series (always time-based)
-            const mode = this.getSelectedReadingsMode();
-            const timeRowsVisible = (ot === 'series') || (ot === 'raw' && mode === 'window');
-            show('fl-timewindow-row', timeRowsVisible);
-            show('fl-previous-row', timeRowsVisible);
-            // Aggregation visible for Raw and Series
-            show('fl-agg-row', ot === 'raw' || ot === 'series');
-        } catch (_e) {}
-    }
-
     updateReadingsSummary() {
         try {
             const el = document.getElementById('fl-readings-summary');
             if (!el) return;
             const mode = this.getSelectedReadingsMode();
+            const otEl = document.querySelector('input[name="fl-ot"]:checked');
+            const ot = otEl ? otEl.value : 'raw';
             const asset = elements.assetSelect()?.value || elements.asset()?.value || '';
             const datapoint = elements.datapoint()?.value?.trim() || '';
             const limit = elements.limit()?.value || '100';
@@ -849,7 +825,33 @@ export class EventHandlerManager {
             } else {
                 timePart = `limit=${limit}, skip=${skip}`;
             }
-            el.textContent = `Mode: ${mode} • Asset: ${asset || '—'}${datapoint ? `.${datapoint}` : ''} • ${timePart}`;
+            el.textContent = `Output: ${ot} • Mode: ${mode} • Asset: ${asset || '—'}${datapoint ? `.${datapoint}` : ''} • ${timePart}`;
+        } catch (_e) {}
+    }
+
+    updateReadingsVisibility() {
+        try {
+            const otEl = document.querySelector('input[name="fl-ot"]:checked');
+            const ot = otEl ? otEl.value : 'raw';
+            const show = (id, visible) => {
+                const row = document.getElementById(id);
+                if (row) row.style.display = visible ? 'block' : 'none';
+            };
+            // Mode section visible for raw and series
+            show('fl-mode-section', ot === 'raw' || ot === 'series');
+            // Asset row always visible
+            show('fl-asset-row', true);
+            // Datapoint+limit row for raw; for series keep visible but limit disabled by mode
+            show('fl-dp-limit-row', ot === 'raw' || ot === 'series');
+            show('fl-skip-row', ot === 'raw');
+            const mode = this.getSelectedReadingsMode();
+            const timeVisible = (ot === 'series') || (ot === 'raw' && mode !== 'latest');
+            show('fl-timewindow-row', timeVisible);
+            show('fl-previous-row', timeVisible);
+            // Aggregation row for raw and series
+            show('fl-agg-row', ot === 'raw' || ot === 'series');
+            // Summary row always visible
+            show('fl-summary-row', true);
         } catch (_e) {}
     }
 

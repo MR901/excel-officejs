@@ -104,6 +104,15 @@
                             <div class="small muted">Asset data → formatted sheet</div>
             </div>
             <div class="row">
+                            <label class="small" style="margin-bottom: 4px;">Output Type</label>
+                <div class="stack" style="gap: 6px;">
+                    <label class="small"><input type="radio" name="fl-ot" id="fl-ot-raw" value="raw" checked /> Raw Readings</label>
+                    <label class="small"><input type="radio" name="fl-ot" id="fl-ot-summary" value="summary" /> Summary Statistics</label>
+                    <label class="small"><input type="radio" name="fl-ot" id="fl-ot-timespan" value="timespan" /> Time Span</label>
+                    <label class="small"><input type="radio" name="fl-ot" id="fl-ot-series" value="series" /> Time Series</label>
+                </div>
+            </div>
+            <div class="row">
                             <label class="small" style="margin-bottom: 4px;">Mode</label>
                 <div class="stack" style="gap: 6px;">
                     <label class="small"><input type="radio" name="fl-mode" id="fl-mode-latest" value="latest" checked /> Latest (limit/skip)</label>
@@ -138,6 +147,22 @@
             </div>
             <div class="row">
                             <input id="fl-previous" type="number" min="1" placeholder="previous (for historical)" />
+            </div>
+            <div class="row">
+                            <div class="stack">
+                                <label class="small">Aggregation</label>
+                                <div class="row" style="gap: 8px; align-items: center;">
+                                    <select id="fl-aggregate" title="Aggregation function" style="max-width: 140px;">
+                                        <option value="">(none)</option>
+                                        <option value="min">min</option>
+                                        <option value="max">max</option>
+                                        <option value="avg">avg</option>
+                                        <option value="sum">sum</option>
+                                        <option value="count">count</option>
+                                    </select>
+                                    <input id="fl-group" type="text" placeholder="group by (optional)" style="max-width: 180px;" />
+                                </div>
+                            </div>
             </div>
             <div class="row">
                             <div id="fl-readings-summary" class="small muted"></div>

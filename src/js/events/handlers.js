@@ -378,7 +378,7 @@ export class EventHandlerManager {
             });
 
         // Update readings summary on input changes
-        ['fl-asset-select','fl-asset','fl-datapoint','fl-limit','fl-skip','fl-seconds','fl-minutes','fl-hours','fl-previous']
+        ['fl-asset-select','fl-asset','fl-datapoint','fl-limit','fl-skip','fl-seconds','fl-minutes','fl-hours','fl-previous','fl-aggregate','fl-group','fl-ot-raw','fl-ot-summary','fl-ot-timespan','fl-ot-series']
             .forEach(id => {
                 const el = document.getElementById(id);
                 if (el) {

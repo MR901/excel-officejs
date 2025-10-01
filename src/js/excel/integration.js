@@ -513,7 +513,7 @@ export class ExcelIntegrationManager {
                 sheet: sheetName
             });
 
-            const readings = await this.fetchReadingsData(asset, exportParams.data);
+        const readings = await this.fetchReadingsData(asset, exportParams.data);
             if (!readings || readings.length === 0) {
                 logMessage('warn', 'No readings data found for export', { asset });
                 return false;
@@ -1058,35 +1058,46 @@ export class ExcelIntegrationManager {
      * @returns {Promise<Array>} Readings data
      */
     async fetchReadingsData(asset, params) {
-        // Build query parameters object for the API call
+        const datapoint = params.datapoint && params.datapoint.trim() !== '' ? params.datapoint : null;
         const queryParams = {};
-        
         if (params.limit && params.limit > 0) queryParams.limit = params.limit;
         if (params.skip && params.skip > 0) queryParams.skip = params.skip;
         if (params.seconds && params.seconds > 0) queryParams.seconds = params.seconds;
         if (params.minutes && params.minutes > 0) queryParams.minutes = params.minutes;
         if (params.hours && params.hours > 0) queryParams.hours = params.hours;
         if (params.previous && params.previous > 0) queryParams.previous = params.previous;
-        
-        const datapoint = params.datapoint && params.datapoint.trim() !== '' ? params.datapoint : null;
-        
-        // Use smart manager for readings
+        if (params.aggregate) queryParams.aggregate = params.aggregate;
+        if (params.group) queryParams.group = params.group;
+
+        // Route based on output type
+        const ot = params.outputType || 'raw';
+        if (ot === 'summary') {
+            return await window.FogLAMP.api.readingsSummary(asset, datapoint, queryParams);
+        } else if (ot === 'timespan') {
+            return await window.FogLAMP.api.readingsTimespan(asset, datapoint, queryParams);
+        } else if (ot === 'series') {
+            // For series, prefer time-based params; limit/skip are not applicable generally
+            return await window.FogLAMP.api.readingsSeries(asset, datapoint, queryParams);
+        }
+
+        // Default: raw readings
+        // Prefer smart manager if available for web, else unified API
         if (window.smartManager && window.smartManager.foglampReadings) {
             return await window.smartManager.foglampReadings(asset, datapoint, queryParams);
         } else if (window.foglampAssetReadingsSmart) {
-            // Fallback to global function
             return await window.foglampAssetReadingsSmart(
                 asset,
                 datapoint,
-                params.limit,
-                params.skip,
-                params.seconds > 0 ? params.seconds : undefined,
-                params.minutes > 0 ? params.minutes : undefined,
-                params.hours > 0 ? params.hours : undefined,
-                params.previous > 0 ? params.previous : undefined
+                queryParams.limit,
+                queryParams.skip,
+                queryParams.seconds,
+                queryParams.minutes,
+                queryParams.hours,
+                queryParams.previous
             );
         } else {
-            throw new Error('Asset readings function not available');
+            // Unified API direct
+            return await window.FogLAMP.api.readings(asset, datapoint, queryParams);
         }
     }
 

@@ -400,6 +400,54 @@ export class FogLAMPAPIManager {
     }
 
     /**
+     * FogLAMP Asset Readings Summary
+     */
+    async readingsSummary(asset, datapoint = null, params = {}) {
+        const base = datapoint ? `${this.apiEndpoints.readings}/${asset}/${datapoint}` : `${this.apiEndpoints.readings}/${asset}`;
+        const path = `${base}/summary`;
+        const queryParams = new URLSearchParams();
+        Object.keys(params).forEach(key => {
+            if (params[key] != null && params[key] !== '') {
+                queryParams.set(key, String(params[key]));
+            }
+        });
+        const fullPath = queryParams.toString() ? `${path}?${queryParams.toString()}` : path;
+        return await this.apiCall(fullPath);
+    }
+
+    /**
+     * FogLAMP Asset Readings Time Span
+     */
+    async readingsTimespan(asset, datapoint = null, params = {}) {
+        const base = datapoint ? `${this.apiEndpoints.readings}/${asset}/${datapoint}` : `${this.apiEndpoints.readings}/${asset}`;
+        const path = `${base}/timespan`;
+        const queryParams = new URLSearchParams();
+        Object.keys(params).forEach(key => {
+            if (params[key] != null && params[key] !== '') {
+                queryParams.set(key, String(params[key]));
+            }
+        });
+        const fullPath = queryParams.toString() ? `${path}?${queryParams.toString()}` : path;
+        return await this.apiCall(fullPath);
+    }
+
+    /**
+     * FogLAMP Asset Readings Series
+     */
+    async readingsSeries(asset, datapoint = null, params = {}) {
+        const base = datapoint ? `${this.apiEndpoints.readings}/${asset}/${datapoint}` : `${this.apiEndpoints.readings}/${asset}`;
+        const path = `${base}/series`;
+        const queryParams = new URLSearchParams();
+        Object.keys(params).forEach(key => {
+            if (params[key] != null && params[key] !== '') {
+                queryParams.set(key, String(params[key]));
+            }
+        });
+        const fullPath = queryParams.toString() ? `${path}?${queryParams.toString()}` : path;
+        return await this.apiCall(fullPath);
+    }
+
+    /**
      * Get API manager status information
      * @returns {Object} Status object
      */

@@ -494,7 +494,7 @@ export class ExcelIntegrationManager {
         const buildReadingsSheetName = () => {
             const invalid = /[\\\/\?\*\[\]:]/g; // Excel disallowed chars
             // Prefer hostName; else derive hostname from URL; else fallback to URL
-            let leftRaw = activeInstance.hostName || '';
+            let leftRaw = activeInstance.hostName || getDisplayName(activeInstance) || '';
             if (!leftRaw) {
                 try {
                     leftRaw = new URL(activeInstance.url).hostname;
@@ -502,10 +502,14 @@ export class ExcelIntegrationManager {
                     leftRaw = activeInstance.url || 'instance';
                 }
             }
-            const left = (leftRaw || 'instance').replace(invalid, '-').substring(0, 20);
-            const right = (asset || 'asset').replace(invalid, '-').substring(0, 10);
+            const otLocal = exportParams?.data?.outputType || 'raw';
+            const rightRaw = otLocal === 'combined' ? 'data-summary' : (asset || 'asset');
+            const right = rightRaw.replace(invalid, '-');
+            // Ensure right side remains intact within 31-char limit
+            const maxLeftLen = Math.max(1, 31 - 1 - right.length); // 1 for '>'
+            const left = (leftRaw || 'instance').replace(invalid, '-').substring(0, maxLeftLen);
             const name = `${left}>${right}`;
-            return name.substring(0, 31) || 'Readings';
+            return name || 'Readings';
         };
         const sheetName = buildReadingsSheetName();
 
@@ -579,18 +583,31 @@ export class ExcelIntegrationManager {
                 // Table 1 label
                 rows.push(['Table1: Assets-wise summary']);
 
-                // Per-asset vertical blocks
-                perAssetData.forEach((entry, idx) => {
+                // Per-asset horizontal summary rows
+                const toIso = (ts) => {
+                    if (!ts) return '';
+                    const d = this.parseFoglampTimestamp(ts) || new Date(ts);
+                    return (d instanceof Date && !isNaN(d.getTime())) ? d.toISOString() : String(ts);
+                };
+
+                const sNoRow = ['SNo.', ...perAssetData.map((_, idx) => idx + 1)];
+                const assetsRow = ['Assets', ...perAssetData.map((entry) => entry.assetName)];
+                const readingsRow = ['Readings', ...perAssetData.map((entry) => entry.readingCount)];
+                const oldestRow = ['Oldest Reading Timestamp:', ...perAssetData.map((entry) => {
                     const obj = Array.isArray(entry.timespan) ? (entry.timespan[0] || {}) : (entry.timespan || {});
-                    const oldest = obj.oldest ? this.formatShortTimestamp(obj.oldest) : '';
-                    const newest = obj.newest ? this.formatShortTimestamp(obj.newest) : '';
-                    rows.push(['SNo.', idx + 1]);
-                    rows.push(['Assets', entry.assetName]);
-                    rows.push(['Readings', entry.readingCount]);
-                    rows.push(['Oldest Reading Timestamp:', oldest]);
-                    rows.push(['Newest Reading Timestamp:', newest]);
-                    rows.push([]);
-                });
+                    return obj.oldest ? toIso(obj.oldest) : '';
+                })];
+                const newestRow = ['Newest Reading Timestamp:', ...perAssetData.map((entry) => {
+                    const obj = Array.isArray(entry.timespan) ? (entry.timespan[0] || {}) : (entry.timespan || {});
+                    return obj.newest ? toIso(obj.newest) : '';
+                })];
+
+                rows.push(sNoRow);
+                rows.push(assetsRow);
+                rows.push(readingsRow);
+                rows.push(oldestRow);
+                rows.push(newestRow);
+                rows.push([]);
 
                 // Table 2 label
                 rows.push([]);

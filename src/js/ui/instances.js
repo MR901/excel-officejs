@@ -369,10 +369,23 @@ export class InstanceListManager {
             // Update badges if available
             window.FogLAMP.badges.updateOverviewBadges();
             
-            // Load assets for the new active instance
-            if (window.loadAssetsForActiveInstance) {
+            // Clear any cached assets and force refresh for the new active instance
+            try { window.FogLAMP?.assets?.clearAssetCache?.(); } catch (_e) {}
+            if (typeof window.refreshAssetListForActiveInstance === 'function') {
+                await window.refreshAssetListForActiveInstance();
+            } else if (typeof window.loadAssetsForActiveInstance === 'function') {
                 await window.loadAssetsForActiveInstance();
             }
+
+            // Nudge smart connection to reload registrations and refresh discovery on next request
+            try {
+                if (window.smartManager) {
+                    window.smartManager.loadUserRegisteredInstances();
+                    if (window.smartManager.availableInstances && typeof window.smartManager.availableInstances.clear === 'function') {
+                        window.smartManager.availableInstances.clear();
+                    }
+                }
+            } catch (_e) {}
         } catch (error) {
             logMessage('error', 'Failed to set active instance', { url, error: error.message });
         }

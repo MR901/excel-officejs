@@ -133,18 +133,23 @@ export class AssetManager {
      */
     async fetchAssetsFromInstance(instanceUrl) {
         try {
-            // Use unified API if available
-            if (window.FogLAMP && window.FogLAMP.api && window.FogLAMP.api.assets) {
+            // Prefer targeting the active instance explicitly to avoid cross-instance data leaks
+            if (window.FogLAMP && window.FogLAMP.api && typeof window.FogLAMP.api.assetsForUrl === 'function' && instanceUrl) {
+                return await window.FogLAMP.api.assetsForUrl(instanceUrl);
+            }
+
+            // Fallback: unified API (may use smart selection)
+            if (window.FogLAMP && window.FogLAMP.api && typeof window.FogLAMP.api.assets === 'function') {
                 return await window.FogLAMP.api.assets();
             }
             
             // Fallback to smart manager
-            if (window.smartManager && window.smartManager.foglampAssets) {
+            if (window.smartManager && typeof window.smartManager.foglampAssets === 'function') {
                 return await window.smartManager.foglampAssets();
             }
             
             // Fallback to global function
-            if (window.foglampAssetsSmart) {
+            if (typeof window.foglampAssetsSmart === 'function') {
                 return await window.foglampAssetsSmart();
             }
             

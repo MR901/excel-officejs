@@ -535,66 +535,90 @@ export class ExcelIntegrationManager {
                 const t = this.buildTimespanTable(readings, asset, exportParams.data.datapoint);
                 headers = t.headers; rows = t.rows;
             } else if (ot === 'combined') {
-                // Build combined output: Time Span + Summary.
-                // If dedicated endpoints fail, fall back to deriving from raw readings.
-                let timeSpanHeaders, timeSpanRows, summaryHeaders, summaryRows;
-                try {
-                    const tsData = await this.fetchReadingsData(asset, { ...exportParams.data, outputType: 'timespan' });
-                    const t = this.buildTimespanTable(tsData, asset, exportParams.data.datapoint);
-                    timeSpanHeaders = t.headers; timeSpanRows = t.rows;
-                } catch (e) {
-                    try { logMessage('warn', 'Timespan endpoint failed, deriving from raw readings', { error: e.message }); } catch (_e) {}
-                    const derivedTs = this.deriveTimespanFromReadings(readings);
-                    const t = this.buildTimespanTable(derivedTs, asset, exportParams.data.datapoint);
-                    timeSpanHeaders = t.headers; timeSpanRows = t.rows;
-                }
-
-                try {
-                    const sumData = await this.fetchReadingsData(asset, { ...exportParams.data, outputType: 'summary' });
-                    const t = this.buildSummaryTable(sumData, asset, exportParams.data.datapoint);
-                    summaryHeaders = t.headers; summaryRows = t.rows;
-                } catch (e) {
-                    try { logMessage('warn', 'Summary endpoint failed, deriving from raw readings', { error: e.message }); } catch (_e) {}
-                    const derivedSummary = this.deriveSummaryFromReadings(readings, exportParams.data.datapoint);
-                    const t = this.buildSummaryTable(derivedSummary, asset, exportParams.data.datapoint);
-                    summaryHeaders = t.headers; summaryRows = t.rows;
-                }
-
-                // Compose output as requested:
-                // 1) Instance/Asset/Oldest/Newest block (2 columns per row)
-                // 2) SNo./Assets/Readings block (2 columns per row)
-                // 3) Summary table header + row (5 columns)
-
+                // Build upgraded combined output across ALL assets for the active instance
+                // Table 1: Assets-wise summary (vertical blocks per asset)
+                // Table 2: Asset & datapoint wise summary (tabular)
                 const instanceName = getDisplayName(activeInstance);
-                const oldestTs = (Array.isArray(timeSpanRows) && timeSpanRows[0] && timeSpanRows[0][2]) ? timeSpanRows[0][2] : '';
-                const newestTs = (Array.isArray(timeSpanRows) && timeSpanRows[0] && timeSpanRows[0][3]) ? timeSpanRows[0][3] : '';
+                const baseUrl = activeInstance?.url || null;
 
-                const infoRows = [
-                    ['Instance Name:', instanceName],
-                    ['Asset name:', asset],
-                    ['Oldest Reading Timestamp:', oldestTs],
-                    ['Newest Reading Timestamp:', newestTs]
-                ];
+                // Fetch asset list
+                const allAssets = await this.fetchAssetsData();
+                const assetEntries = Array.isArray(allAssets) ? allAssets : [];
 
-                // Counts block: for selected asset only (use fetched readings length)
-                const readingsCount = Array.isArray(readings) ? readings.length : 0;
-                const countsRows = [
-                    ['SNo.', 0],
-                    ['Assets', asset],
-                    ['Readings', readingsCount]
-                ];
+                // Prepare per-asset timespan and summary in parallel
+                const perAssetData = await Promise.all(assetEntries.map(async (a) => {
+                    const assetName = a.assetCode || a.asset || a.name || '';
+                    const readingCount = a.count || 0;
+                    let timespan = null;
+                    let summary = null;
+                    try {
+                        if (baseUrl && window.FogLAMP?.api?.readingsTimespanForUrl) {
+                            timespan = await window.FogLAMP.api.readingsTimespanForUrl(baseUrl, assetName, null, {});
+                        } else {
+                            timespan = await window.FogLAMP.api.readingsTimespan(assetName, null, {});
+                        }
+                    } catch (_e) {}
+                    try {
+                        if (baseUrl && window.FogLAMP?.api?.readingsSummaryForUrl) {
+                            summary = await window.FogLAMP.api.readingsSummaryForUrl(baseUrl, assetName, null, {});
+                        } else {
+                            summary = await window.FogLAMP.api.readingsSummary(assetName, null, {});
+                        }
+                    } catch (_e) {}
+                    return { assetName, readingCount, timespan, summary };
+                }));
 
-                // Summary section: header row + data row
-                const summarySectionRows = [ summaryHeaders, ...(Array.isArray(summaryRows) ? summaryRows : []) ];
-
+                // Compose rows
                 headers = [];
-                rows = [
-                    ...infoRows,
-                    [],
-                    ...countsRows,
-                    [],
-                    ...summarySectionRows
-                ];
+                rows = [];
+
+                // Instance header
+                rows.push(['Instance Name:', instanceName]);
+                rows.push([]);
+
+                // Table 1 label
+                rows.push(['Table1: Assets-wise summary']);
+
+                // Per-asset vertical blocks
+                perAssetData.forEach((entry, idx) => {
+                    const obj = Array.isArray(entry.timespan) ? (entry.timespan[0] || {}) : (entry.timespan || {});
+                    const oldest = obj.oldest ? this.formatShortTimestamp(obj.oldest) : '';
+                    const newest = obj.newest ? this.formatShortTimestamp(obj.newest) : '';
+                    rows.push(['SNo.', idx + 1]);
+                    rows.push(['Assets', entry.assetName]);
+                    rows.push(['Readings', entry.readingCount]);
+                    rows.push(['Oldest Reading Timestamp:', oldest]);
+                    rows.push(['Newest Reading Timestamp:', newest]);
+                    rows.push([]);
+                });
+
+                // Table 2 label
+                rows.push([]);
+                rows.push(['Table2: Asset & datapoint wise summary']);
+                // Header for table 2
+                rows.push(['SNo.', 'Asset', 'Datapoint', 'Min', 'Max', 'Average']);
+
+                // Data rows for table 2
+                let serial = 1;
+                perAssetData.forEach((entry) => {
+                    // Normalize summary into a mapping { dpName: {min,max,average} }
+                    let mapping = {};
+                    if (Array.isArray(entry.summary)) {
+                        mapping = entry.summary[0] || {};
+                    } else if (entry.summary && typeof entry.summary === 'object') {
+                        const looksLikeStats = ['min','max','average','minimum','maximum','avg']
+                            .some(k => Object.prototype.hasOwnProperty.call(entry.summary, k));
+                        mapping = looksLikeStats ? {} : entry.summary;
+                    }
+                    const keys = Object.keys(mapping).sort((a, b) => a.localeCompare(b));
+                    keys.forEach((dp) => {
+                        const node = mapping[dp] || {};
+                        const minVal = node.min ?? node.minimum ?? '';
+                        const maxVal = node.max ?? node.maximum ?? '';
+                        const avgVal = node.average ?? node.avg ?? '';
+                        rows.push([serial++, entry.assetName, dp, minVal, maxVal, avgVal]);
+                    });
+                });
             } else {
                 const t = this.buildSimpleReadings(readings, asset, exportParams.data.datapoint);
                 headers = t.headers; rows = t.rows;
@@ -1377,10 +1401,10 @@ export class ExcelIntegrationManager {
             });
         } catch (_e) {}
 
-        if (window.smartManager && window.smartManager.foglampReadings) {
+        if (window.smartManager && typeof window.smartManager.foglampReadings === 'function') {
             try { logMessage('debug', 'Using smartManager.foglampReadings transport'); } catch (_e) {}
             return await window.smartManager.foglampReadings(asset, datapoint, rawParams);
-        } else if (window.foglampAssetReadingsSmart) {
+        } else if (typeof window.foglampAssetReadingsSmart === 'function') {
             try { logMessage('debug', 'Using legacy window.foglampAssetReadingsSmart transport'); } catch (_e) {}
             return await window.foglampAssetReadingsSmart(
                 asset,
@@ -1393,8 +1417,14 @@ export class ExcelIntegrationManager {
                 rawParams.previous
             );
         } else {
+            // Explicitly target the active instance when possible to avoid stale-instance reads
+            const activeInstance = getActiveInstanceWithMeta();
+            const baseUrl = activeInstance?.url;
+            if (baseUrl && window.FogLAMP?.api?.readingsForUrl) {
+                try { logMessage('debug', 'Using FogLAMP.api.readingsForUrl with active instance'); } catch (_e) {}
+                return await window.FogLAMP.api.readingsForUrl(baseUrl, asset, datapoint, rawParams);
+            }
             try { logMessage('debug', 'Using unified FogLAMP.api.readings transport'); } catch (_e) {}
-            // Unified API direct
             return await window.FogLAMP.api.readings(asset, datapoint, rawParams);
         }
     }

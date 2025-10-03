@@ -383,7 +383,7 @@ export class EventHandlerManager {
             });
 
         // Update readings summary on input changes
-        ['fl-asset-select','fl-asset','fl-datapoint','fl-limit','fl-skip','fl-seconds','fl-minutes','fl-hours','fl-previous','fl-ot-raw','fl-ot-summary','fl-ot-timespan','fl-ot-series']
+        ['fl-asset-select','fl-asset','fl-datapoint','fl-limit','fl-skip','fl-seconds','fl-minutes','fl-hours','fl-previous','fl-ot-raw','fl-ot-combined']
             .forEach(id => {
                 const el = document.getElementById(id);
                 if (el) {
@@ -759,7 +759,7 @@ export class EventHandlerManager {
                 .filter(Boolean);
             radios.forEach(r => r.addEventListener('change', () => { this.updateReadingsModeUI(); this.updateReadingsVisibility(); }));
             // Output type radios
-            const otRadios = ['fl-ot-raw','fl-ot-summary','fl-ot-timespan']
+            const otRadios = ['fl-ot-raw','fl-ot-combined']
                 .map(id => document.getElementById(id))
                 .filter(Boolean);
             otRadios.forEach(r => r.addEventListener('change', () => this.updateReadingsVisibility()));

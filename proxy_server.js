@@ -228,8 +228,9 @@ function requestListener(req, res) {
             if (remainingPath.length === 0) {
                 remainingPath = '/';
             }
-            console.log(`📡 [${requestId}] Proxying ${instanceName}: ${req.method} ${remainingPath}`);
-            proxyRequest(instanceUrl, req, res, remainingPath, requestId);
+            const remainingWithQuery = `${remainingPath}${parsedUrl.search || ''}`;
+            console.log(`📡 [${requestId}] Proxying ${instanceName}: ${req.method} ${remainingWithQuery}`);
+            proxyRequest(instanceUrl, req, res, remainingWithQuery, requestId);
             return;
         }
     }

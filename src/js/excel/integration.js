@@ -560,28 +560,71 @@ export class ExcelIntegrationManager {
                     summaryHeaders = t.headers; summaryRows = t.rows;
                 }
 
-                headers = timeSpanHeaders;
-                rows = timeSpanRows.concat([[]]).concat([summaryHeaders]).concat(summaryRows);
+                // Compose output as requested:
+                // 1) Instance/Asset/Oldest/Newest block (2 columns per row)
+                // 2) SNo./Assets/Readings block (2 columns per row)
+                // 3) Summary table header + row (5 columns)
+
+                const instanceName = getDisplayName(activeInstance);
+                const oldestTs = (Array.isArray(timeSpanRows) && timeSpanRows[0] && timeSpanRows[0][2]) ? timeSpanRows[0][2] : '';
+                const newestTs = (Array.isArray(timeSpanRows) && timeSpanRows[0] && timeSpanRows[0][3]) ? timeSpanRows[0][3] : '';
+
+                const infoRows = [
+                    ['Instance Name:', instanceName],
+                    ['Asset name:', asset],
+                    ['Oldest Reading Timestamp:', oldestTs],
+                    ['Newest Reading Timestamp:', newestTs]
+                ];
+
+                // Counts block: for selected asset only (use fetched readings length)
+                const readingsCount = Array.isArray(readings) ? readings.length : 0;
+                const countsRows = [
+                    ['SNo.', 0],
+                    ['Assets', asset],
+                    ['Readings', readingsCount]
+                ];
+
+                // Summary section: header row + data row
+                const summarySectionRows = [ summaryHeaders, ...(Array.isArray(summaryRows) ? summaryRows : []) ];
+
+                headers = [];
+                rows = [
+                    ...infoRows,
+                    [],
+                    ...countsRows,
+                    [],
+                    ...summarySectionRows
+                ];
             } else {
                 const t = this.buildSimpleReadings(readings, asset, exportParams.data.datapoint);
                 headers = t.headers; rows = t.rows;
             }
 
+            // Determine target column count and normalize rows to avoid Excel range mismatch
+            const targetColCount = Math.max(
+                Array.isArray(headers) ? headers.length : 0,
+                Array.isArray(rows) && rows.length > 0 ? rows.reduce((max, r) => Math.max(max, Array.isArray(r) ? r.length : 1), 0) : 0
+            );
+            const normalizedRows = this.normalizeRowsForExcel(rows, Math.max(1, targetColCount));
+            const normalizedHeader = (Array.isArray(headers) && headers.length > 0)
+                ? this.normalizeRowsForExcel([headers], Math.max(1, targetColCount))[0]
+                : null;
+
             await Excel.run(async (context) => {
                 const sheet = await this.ensureWorksheet(context, sheetName);
                 // Clear a safe bounding area without relying on isNullObject (compat-safe)
                 try {
-                    const clearRows = Math.max(rows.length + 50, 200);
-                    const clearCols = Math.max(headers.length + 5, 10);
+                    const clearRows = Math.max(normalizedRows.length + 50, 200);
+                    const clearCols = Math.max(Math.max(headers.length || 0, targetColCount) + 5, 10);
                     const clearRange = sheet.getRangeByIndexes(0, 0, clearRows, clearCols);
                     clearRange.clear();
                 await context.sync();
                 } catch (_e) {}
 
                 // Write headers
-                if (headers && headers.length > 0) {
-                    const headerRange = sheet.getRangeByIndexes(0, 0, 1, headers.length);
-                    headerRange.values = [headers];
+                if (Array.isArray(headers) && headers.length > 0) {
+                    const headerRange = sheet.getRangeByIndexes(0, 0, 1, Math.max(1, targetColCount));
+                    headerRange.values = [normalizedHeader];
                     // Header styling
                     headerRange.format.fill.color = '#E6F2FF';
                     headerRange.format.font.bold = true;
@@ -590,15 +633,16 @@ export class ExcelIntegrationManager {
                 }
 
                 // Write rows
-                if (rows && rows.length > 0) {
-                    const dataRange = sheet.getRangeByIndexes(1, 0, rows.length, Math.max(1, headers.length));
-                    dataRange.values = rows;
+                if (normalizedRows && normalizedRows.length > 0) {
+                    const startRowOffset = (Array.isArray(headers) && headers.length > 0) ? 1 : 0;
+                    const dataRange = sheet.getRangeByIndexes(startRowOffset, 0, normalizedRows.length, Math.max(1, targetColCount));
+                    dataRange.values = normalizedRows;
                     // Apply timestamp format only when the first header is explicitly 'Timestamp'
                     try {
-                        if (headers && headers.length > 0 && String(headers[0]).toLowerCase() === 'timestamp') {
-                            const tsRange = sheet.getRangeByIndexes(1, 0, rows.length, 1);
+                        if (Array.isArray(headers) && headers.length > 0 && String(headers[0]).toLowerCase() === 'timestamp') {
+                            const tsRange = sheet.getRangeByIndexes(1, 0, normalizedRows.length, 1);
                             const fmt = this.exportFormats.readings.dateFormat;
-                            const fmtMatrix = Array(rows.length).fill([fmt]);
+                            const fmtMatrix = Array(normalizedRows.length).fill([fmt]);
                             tsRange.numberFormat = fmtMatrix;
                         }
                     } catch (_e) {}
@@ -614,7 +658,7 @@ export class ExcelIntegrationManager {
                 } catch (_e) {}
 
                 await context.sync();
-                logMessage('info', 'Minimal readings export done', { sheet: sheetName, rows: rows.length, columns: headers.length });
+                logMessage('info', 'Minimal readings export done', { sheet: sheetName, rows: normalizedRows.length, columns: Math.max(1, targetColCount) });
             });
 
             return true;

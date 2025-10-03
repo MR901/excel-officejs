@@ -657,8 +657,6 @@ export class ExcelIntegrationManager {
                 params.minutes = mins > 0 ? mins : -1;
                 params.hours = hrs > 0 ? hrs : -1;
             }
-            // Remove limit/skip when using time-based selection
-            params.limit = undefined; params.skip = undefined;
         } else if (mode === 'previous') {
             const prev = parseInt(elements.previous()?.value || '0', 10);
             if (prev <= 0) {
@@ -678,8 +676,6 @@ export class ExcelIntegrationManager {
                 params.minutes = mins > 0 ? mins : -1;
                 params.hours = hrs > 0 ? hrs : -1;
             }
-            // Remove limit/skip when using time-based selection
-            params.limit = undefined; params.skip = undefined;
         }
 
         return {
@@ -1193,18 +1189,20 @@ export class ExcelIntegrationManager {
             }
             const activeInstance = getActiveInstanceWithMeta();
             const baseUrl = activeInstance?.url;
+            // Summary API is asset-level (not datapoint-level)
             if (baseUrl && window.FogLAMP?.api?.readingsSummaryForUrl) {
-                return await window.FogLAMP.api.readingsSummaryForUrl(baseUrl, asset, datapoint, summaryParams);
+                return await window.FogLAMP.api.readingsSummaryForUrl(baseUrl, asset, null, summaryParams);
             }
-            return await window.FogLAMP.api.readingsSummary(asset, datapoint, summaryParams);
+            return await window.FogLAMP.api.readingsSummary(asset, null, summaryParams);
         } else if (ot === 'timespan') {
             // Timespan endpoint should not receive limit/skip or time window params
             const activeInstance = getActiveInstanceWithMeta();
             const baseUrl = activeInstance?.url;
+            // Time span API is asset-level (not datapoint-level)
             if (baseUrl && window.FogLAMP?.api?.readingsTimespanForUrl) {
-                return await window.FogLAMP.api.readingsTimespanForUrl(baseUrl, asset, datapoint, {});
+                return await window.FogLAMP.api.readingsTimespanForUrl(baseUrl, asset, null, {});
             }
-            return await window.FogLAMP.api.readingsTimespan(asset, datapoint, {});
+            return await window.FogLAMP.api.readingsTimespan(asset, null, {});
         }
 
         // Default: raw readings
@@ -1230,9 +1228,21 @@ export class ExcelIntegrationManager {
             if (params.skip && params.skip > 0) rawParams.skip = params.skip;
         }
 
+        // Diagnostic log for raw readings request
+        try {
+            logMessage('info', 'Readings request (raw)', {
+                asset,
+                datapoint: datapoint || '(all)',
+                mode: params.mode,
+                rawParams
+            });
+        } catch (_e) {}
+
         if (window.smartManager && window.smartManager.foglampReadings) {
+            try { logMessage('debug', 'Using smartManager.foglampReadings transport'); } catch (_e) {}
             return await window.smartManager.foglampReadings(asset, datapoint, rawParams);
         } else if (window.foglampAssetReadingsSmart) {
+            try { logMessage('debug', 'Using legacy window.foglampAssetReadingsSmart transport'); } catch (_e) {}
             return await window.foglampAssetReadingsSmart(
                 asset,
                 datapoint,
@@ -1244,6 +1254,7 @@ export class ExcelIntegrationManager {
                 rawParams.previous
             );
         } else {
+            try { logMessage('debug', 'Using unified FogLAMP.api.readings transport'); } catch (_e) {}
             // Unified API direct
             return await window.FogLAMP.api.readings(asset, datapoint, rawParams);
         }

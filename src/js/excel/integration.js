@@ -535,9 +535,33 @@ export class ExcelIntegrationManager {
                 const t = this.buildTimespanTable(readings, asset, exportParams.data.datapoint);
                 headers = t.headers; rows = t.rows;
             } else if (ot === 'combined') {
-                const { headers: h1, rows: r1 } = this.buildTimespanTable(await this.fetchReadingsData(asset, { ...exportParams.data, outputType: 'timespan' }), asset, exportParams.data.datapoint);
-                const { headers: h2, rows: r2 } = this.buildSummaryTable(await this.fetchReadingsData(asset, { ...exportParams.data, outputType: 'summary' }), asset, exportParams.data.datapoint);
-                headers = h1; rows = r1.concat([[]]).concat([h2]).concat(r2);
+                // Build combined output: Time Span + Summary.
+                // If dedicated endpoints fail, fall back to deriving from raw readings.
+                let timeSpanHeaders, timeSpanRows, summaryHeaders, summaryRows;
+                try {
+                    const tsData = await this.fetchReadingsData(asset, { ...exportParams.data, outputType: 'timespan' });
+                    const t = this.buildTimespanTable(tsData, asset, exportParams.data.datapoint);
+                    timeSpanHeaders = t.headers; timeSpanRows = t.rows;
+                } catch (e) {
+                    try { logMessage('warn', 'Timespan endpoint failed, deriving from raw readings', { error: e.message }); } catch (_e) {}
+                    const derivedTs = this.deriveTimespanFromReadings(readings);
+                    const t = this.buildTimespanTable(derivedTs, asset, exportParams.data.datapoint);
+                    timeSpanHeaders = t.headers; timeSpanRows = t.rows;
+                }
+
+                try {
+                    const sumData = await this.fetchReadingsData(asset, { ...exportParams.data, outputType: 'summary' });
+                    const t = this.buildSummaryTable(sumData, asset, exportParams.data.datapoint);
+                    summaryHeaders = t.headers; summaryRows = t.rows;
+                } catch (e) {
+                    try { logMessage('warn', 'Summary endpoint failed, deriving from raw readings', { error: e.message }); } catch (_e) {}
+                    const derivedSummary = this.deriveSummaryFromReadings(readings, exportParams.data.datapoint);
+                    const t = this.buildSummaryTable(derivedSummary, asset, exportParams.data.datapoint);
+                    summaryHeaders = t.headers; summaryRows = t.rows;
+                }
+
+                headers = timeSpanHeaders;
+                rows = timeSpanRows.concat([[]]).concat([summaryHeaders]).concat(summaryRows);
             } else {
                 const t = this.buildSimpleReadings(readings, asset, exportParams.data.datapoint);
                 headers = t.headers; rows = t.rows;
@@ -1047,6 +1071,77 @@ export class ExcelIntegrationManager {
         } catch (_e) {
             return { headers: ['No Data'], rows: [['No timespan available']] };
         }
+    }
+
+    /**
+     * Derive timespan (oldest/newest) from raw readings
+     * @param {Array} readings
+     * @returns {{oldest: string, newest: string}}
+     */
+    deriveTimespanFromReadings(readings) {
+        if (!Array.isArray(readings) || readings.length === 0) {
+            return { oldest: '', newest: '' };
+        }
+        let oldestStr = '', newestStr = '';
+        let oldestTime = Number.POSITIVE_INFINITY;
+        let newestTime = Number.NEGATIVE_INFINITY;
+        for (const r of readings) {
+            const tsStr = (r && (r.user_ts || r.timestamp)) ? (r.user_ts || r.timestamp) : '';
+            if (!tsStr) continue;
+            const d = this.parseFoglampTimestamp(tsStr) || new Date(tsStr);
+            const t = d instanceof Date && !isNaN(d.getTime()) ? d.getTime() : null;
+            if (t == null) continue;
+            if (t < oldestTime) { oldestTime = t; oldestStr = tsStr; }
+            if (t > newestTime) { newestTime = t; newestStr = tsStr; }
+        }
+        return { oldest: oldestStr, newest: newestStr };
+    }
+
+    /**
+     * Derive summary (min/max/average) for a datapoint from raw readings
+     * @param {Array} readings
+     * @param {string|null} datapoint
+     * @returns {Object} Shape compatible with buildSummaryTable input
+     */
+    deriveSummaryFromReadings(readings, datapoint = null) {
+        if (!Array.isArray(readings) || readings.length === 0) {
+            return {};
+        }
+        // Choose datapoint: prefer provided, else first numeric key encountered
+        let chosen = datapoint && String(datapoint).trim() !== '' ? String(datapoint).trim() : null;
+        if (!chosen) {
+            for (const r of readings) {
+                const obj = r && r.reading && typeof r.reading === 'object' ? r.reading : null;
+                if (!obj) continue;
+                for (const k of Object.keys(obj)) {
+                    const v = obj[k];
+                    if (typeof v === 'number' && isFinite(v)) { chosen = k; break; }
+                }
+                if (chosen) break;
+            }
+        }
+        if (!chosen) {
+            return {};
+        }
+        let count = 0;
+        let minVal = Number.POSITIVE_INFINITY;
+        let maxVal = Number.NEGATIVE_INFINITY;
+        let sum = 0;
+        for (const r of readings) {
+            const obj = r && r.reading && typeof r.reading === 'object' ? r.reading : null;
+            if (!obj || !Object.prototype.hasOwnProperty.call(obj, chosen)) continue;
+            const v = obj[chosen];
+            if (typeof v !== 'number' || !isFinite(v)) continue;
+            if (v < minVal) minVal = v;
+            if (v > maxVal) maxVal = v;
+            sum += v;
+            count += 1;
+        }
+        if (count === 0) {
+            return {};
+        }
+        const average = sum / count;
+        return { [chosen]: { min: minVal, max: maxVal, average } };
     }
 
     /**

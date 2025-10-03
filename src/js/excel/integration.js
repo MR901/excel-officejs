@@ -519,7 +519,7 @@ export class ExcelIntegrationManager {
                 params: exportParams.data
             });
 
-            const readings = await this.fetchReadingsData(asset, exportParams.data);
+        const readings = await this.fetchReadingsData(asset, exportParams.data);
             if (!readings || readings.length === 0) {
                 logMessage('warn', 'No readings data found for export', { asset });
                 return false;
@@ -534,6 +534,10 @@ export class ExcelIntegrationManager {
             } else if (ot === 'timespan') {
                 const t = this.buildTimespanTable(readings, asset, exportParams.data.datapoint);
                 headers = t.headers; rows = t.rows;
+            } else if (ot === 'combined') {
+                const { headers: h1, rows: r1 } = this.buildTimespanTable(await this.fetchReadingsData(asset, { ...exportParams.data, outputType: 'timespan' }), asset, exportParams.data.datapoint);
+                const { headers: h2, rows: r2 } = this.buildSummaryTable(await this.fetchReadingsData(asset, { ...exportParams.data, outputType: 'summary' }), asset, exportParams.data.datapoint);
+                headers = h1; rows = r1.concat([[]]).concat([h2]).concat(r2);
             } else {
                 const t = this.buildSimpleReadings(readings, asset, exportParams.data.datapoint);
                 headers = t.headers; rows = t.rows;
@@ -1186,10 +1190,19 @@ export class ExcelIntegrationManager {
         // Route based on output type
         const ot = params.outputType || 'raw';
         if (ot === 'summary') {
-            // Allow asset-level summary when no datapoint is provided
+            // Prefer per-URL call to ensure proxy-safe access in web environments
+            const activeInstance = getActiveInstanceWithMeta();
+            const baseUrl = activeInstance?.url;
+            if (baseUrl && window.FogLAMP?.api?.readingsSummaryForUrl) {
+                return await window.FogLAMP.api.readingsSummaryForUrl(baseUrl, asset, datapoint, queryParams);
+            }
             return await window.FogLAMP.api.readingsSummary(asset, datapoint, queryParams);
         } else if (ot === 'timespan') {
-            // timespan is available for asset overall or specific datapoint; supports no aggregate/group
+            const activeInstance = getActiveInstanceWithMeta();
+            const baseUrl = activeInstance?.url;
+            if (baseUrl && window.FogLAMP?.api?.readingsTimespanForUrl) {
+                return await window.FogLAMP.api.readingsTimespanForUrl(baseUrl, asset, datapoint, queryParams);
+            }
             return await window.FogLAMP.api.readingsTimespan(asset, datapoint, queryParams);
         }
 

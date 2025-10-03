@@ -438,6 +438,22 @@ export class FogLAMPAPIManager {
     }
 
     /**
+     * FogLAMP Asset Readings API for a specific base URL
+     * Ensures proxy-safe access in Excel Web when targeting remote hosts
+     */
+    async readingsForUrl(baseUrl, asset, datapoint = null, params = {}) {
+        const path = datapoint ? `${this.apiEndpoints.readings}/${asset}/${datapoint}` : `${this.apiEndpoints.readings}/${asset}`;
+        const queryParams = new URLSearchParams();
+        Object.keys(params).forEach(key => {
+            if (params[key] != null && params[key] !== '') {
+                queryParams.set(key, String(params[key]));
+            }
+        });
+        const fullPath = queryParams.toString() ? `${path}?${queryParams.toString()}` : path;
+        return await this.apiCallForUrl(baseUrl, fullPath);
+    }
+
+    /**
      * FogLAMP Asset Readings Summary
      */
     async readingsSummary(asset, datapoint = null, params = {}) {
@@ -451,6 +467,22 @@ export class FogLAMPAPIManager {
         });
         const fullPath = queryParams.toString() ? `${path}?${queryParams.toString()}` : path;
         return await this.apiCall(fullPath);
+    }
+
+    /**
+     * FogLAMP Asset Readings Summary for a specific base URL
+     */
+    async readingsSummaryForUrl(baseUrl, asset, datapoint = null, params = {}) {
+        const base = datapoint ? `${this.apiEndpoints.readings}/${asset}/${datapoint}` : `${this.apiEndpoints.readings}/${asset}`;
+        const path = `${base}/summary`;
+        const queryParams = new URLSearchParams();
+        Object.keys(params).forEach(key => {
+            if (params[key] != null && params[key] !== '') {
+                queryParams.set(key, String(params[key]));
+            }
+        });
+        const fullPath = queryParams.toString() ? `${path}?${queryParams.toString()}` : path;
+        return await this.apiCallForUrl(baseUrl, fullPath);
     }
 
     /**
@@ -470,6 +502,22 @@ export class FogLAMPAPIManager {
     }
 
     /**
+     * FogLAMP Asset Readings Time Span for a specific base URL
+     */
+    async readingsTimespanForUrl(baseUrl, asset, datapoint = null, params = {}) {
+        const base = datapoint ? `${this.apiEndpoints.readings}/${asset}/${datapoint}` : `${this.apiEndpoints.readings}/${asset}`;
+        const path = `${base}/timespan`;
+        const queryParams = new URLSearchParams();
+        Object.keys(params).forEach(key => {
+            if (params[key] != null && params[key] !== '') {
+                queryParams.set(key, String(params[key]));
+            }
+        });
+        const fullPath = queryParams.toString() ? `${path}?${queryParams.toString()}` : path;
+        return await this.apiCallForUrl(baseUrl, fullPath);
+    }
+
+    /**
      * FogLAMP Asset Readings Series
      */
     async readingsSeries(asset, datapoint = null, params = {}) {
@@ -483,6 +531,22 @@ export class FogLAMPAPIManager {
         });
         const fullPath = queryParams.toString() ? `${path}?${queryParams.toString()}` : path;
         return await this.apiCall(fullPath);
+    }
+
+    /**
+     * FogLAMP Asset Readings Series for a specific base URL
+     */
+    async readingsSeriesForUrl(baseUrl, asset, datapoint = null, params = {}) {
+        const base = datapoint ? `${this.apiEndpoints.readings}/${asset}/${datapoint}` : `${this.apiEndpoints.readings}/${asset}`;
+        const path = `${base}/series`;
+        const queryParams = new URLSearchParams();
+        Object.keys(params).forEach(key => {
+            if (params[key] != null && params[key] !== '') {
+                queryParams.set(key, String(params[key]));
+            }
+        });
+        const fullPath = queryParams.toString() ? `${path}?${queryParams.toString()}` : path;
+        return await this.apiCallForUrl(baseUrl, fullPath);
     }
 
     /**

@@ -201,7 +201,15 @@ class FogLAMPDataLink {
             // Small delay to ensure UI elements are fully rendered
             await new Promise(resolve => setTimeout(resolve, 200));
             
-            // Always update UI first to show current state
+            // Detect environment and proxy availability early so badges reflect reality on first paint
+            try {
+                if (window.smartManager) {
+                    window.smartManager.detectEnvironment();
+                    await window.smartManager.checkProxyAvailability();
+                }
+            } catch (_e) {}
+            
+            // Update UI to show current state
             this.badges.updateOverviewBadges();
             this.instances.renderInstanceList();
             

@@ -206,22 +206,18 @@ export class FogLAMPAPIManager {
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
         try {
-            // Prefer proxy in web for non-local URLs.
-            // Try HTTPS first on HTTPS pages, then HTTP, regardless of current proxyAvailable flag.
-            if (isWeb && !isLocal) {
+            // Prefer proxy for private-network hosts (e.g., 192.168.x.x, 10.x.x.x) OR when on web
+            // Always try HTTPS proxy first, then HTTP, regardless of current proxyAvailable flag.
+            const isPrivateHost = this._isPrivateNetworkHost(baseUrl);
+            const shouldUseProxy = !isLocal && (isWeb || isPrivateHost);
+            if (shouldUseProxy) {
                 const path = this._getProxyPath(baseUrl);
-                let proxyCandidates;
-                if (discoveredProxyBase && /^https:\/\//i.test(discoveredProxyBase)) {
-                    // If we've already discovered a working HTTPS proxy, don't try HTTP fallback
-                    proxyCandidates = [discoveredProxyBase];
-                } else if (isHttpsPage) {
-                    proxyCandidates = [
-                        `https://localhost:${CONNECTION_CONFIG.PROXY_PORT || 3001}`,
-                        (CONNECTION_CONFIG.PROXY_BASE_URL || 'http://localhost:3001')
-                    ];
-                } else {
-                    proxyCandidates = [ (CONNECTION_CONFIG.PROXY_BASE_URL || 'http://localhost:3001') ];
-                }
+                const httpsCandidate = `https://localhost:${CONNECTION_CONFIG.PROXY_PORT || 3001}`;
+                const httpCandidate = (CONNECTION_CONFIG.PROXY_BASE_URL || 'http://localhost:3001');
+                const proxyCandidates = [];
+                if (discoveredProxyBase) proxyCandidates.push(discoveredProxyBase);
+                if (!proxyCandidates.includes(httpsCandidate)) proxyCandidates.push(httpsCandidate);
+                if (!proxyCandidates.includes(httpCandidate)) proxyCandidates.push(httpCandidate);
 
                 for (const candidateBase of proxyCandidates) {
                     try {
@@ -284,6 +280,27 @@ export class FogLAMPAPIManager {
             return host.replace(/\./g, '-').toLowerCase();
         } catch (_e) {
             return 'instance';
+        }
+    }
+
+    /**
+     * Determine if a URL points to a private-network host
+     * @private
+     */
+    _isPrivateNetworkHost(targetUrl) {
+        try {
+            const parsed = new URL(targetUrl);
+            const host = parsed.hostname;
+            if (host === 'localhost' || host === '127.0.0.1') return false; // treated as local, not remote private
+            // RFC1918 IPv4 ranges: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+            if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+            if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+            if (/^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(host)) return true;
+            // Common mDNS/local domains
+            if (/\.local$/i.test(host)) return true;
+            return false;
+        } catch (_e) {
+            return false;
         }
     }
 

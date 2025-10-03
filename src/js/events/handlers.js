@@ -111,9 +111,17 @@ export class EventHandlerManager {
             const instances = getInstances();
             
             if (instances.length === 0) {
-                logMessage('info', 'Refresh connections: no instances to check, but updating UI status');
-                
-                // Still update UI even with no instances to refresh badges and status
+                logMessage('info', 'Refresh connections: no instances to check, but updating environment/proxy and UI');
+
+                try {
+                    if (window.smartManager) {
+                        // Re-detect environment and proxy so proxy badge is accurate even without instances
+                        window.smartManager.detectEnvironment();
+                        await window.smartManager.checkProxyAvailability();
+                    }
+                } catch (_e) {}
+
+                // Update UI to reflect latest environment/proxy state
                 this.updateUIAfterRefresh();
                 logMessage('info', '✅ Connection refresh completed (no instances)');
                 return;

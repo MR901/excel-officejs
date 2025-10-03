@@ -7,6 +7,7 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const url = require('url');
+const path = require('path');
 
 // Configuration
 const PROXY_PORT = 3001;
@@ -253,16 +254,28 @@ function requestListener(req, res) {
     console.warn(`❓ [${requestId}] Route not found: ${pathname}`);
 }
 
-// Create HTTP or HTTPS server depending on env
+// Create HTTP or HTTPS server depending on env or available certs
 const ENABLE_HTTPS = process.env.HTTPS === '1' || process.env.HTTPS === 'true';
-const SSL_KEY_PATH = process.env.SSL_KEY_PATH;
-const SSL_CERT_PATH = process.env.SSL_CERT_PATH;
+const ENV_SSL_KEY_PATH = process.env.SSL_KEY_PATH;
+const ENV_SSL_CERT_PATH = process.env.SSL_CERT_PATH;
+
+// Default cert locations (if present, HTTPS will auto-enable)
+const DEFAULT_SSL_KEY = path.join(__dirname, 'certs', 'localhost-key.pem');
+const DEFAULT_SSL_CERT = path.join(__dirname, 'certs', 'localhost.pem');
+
+const resolvedKeyPath = ENV_SSL_KEY_PATH || (fs.existsSync(DEFAULT_SSL_KEY) ? DEFAULT_SSL_KEY : null);
+const resolvedCertPath = ENV_SSL_CERT_PATH || (fs.existsSync(DEFAULT_SSL_CERT) ? DEFAULT_SSL_CERT : null);
+
+const shouldEnableHttps = ENABLE_HTTPS || (resolvedKeyPath && resolvedCertPath);
+
 let server;
-if (ENABLE_HTTPS && SSL_KEY_PATH && SSL_CERT_PATH) {
+let isHttpsServer = false;
+if (shouldEnableHttps && resolvedKeyPath && resolvedCertPath) {
     try {
-        const key = fs.readFileSync(SSL_KEY_PATH);
-        const cert = fs.readFileSync(SSL_CERT_PATH);
+        const key = fs.readFileSync(resolvedKeyPath);
+        const cert = fs.readFileSync(resolvedCertPath);
         server = https.createServer({ key, cert }, requestListener);
+        isHttpsServer = true;
         console.log('🔒 HTTPS mode enabled');
     } catch (err) {
         console.error(`⚠️  Failed to load SSL certs (${err.message}). Falling back to HTTP.`);
@@ -270,8 +283,8 @@ if (ENABLE_HTTPS && SSL_KEY_PATH && SSL_CERT_PATH) {
     }
 } else {
     server = http.createServer(requestListener);
-    if (ENABLE_HTTPS) {
-        console.warn('⚠️  HTTPS requested but SSL_KEY_PATH / SSL_CERT_PATH not set; using HTTP');
+    if (ENABLE_HTTPS && (!resolvedKeyPath || !resolvedCertPath)) {
+        console.warn('⚠️  HTTPS requested but SSL_KEY_PATH / SSL_CERT_PATH not set and no default certs found; using HTTP');
     }
 }
 
@@ -288,7 +301,8 @@ server.on('clientError', (err, socket) => {
 // Start server
 server.listen(PROXY_PORT, () => {
     console.log('🚀 FogLAMP Proxy Server started');
-    console.log(`📡 Listening on: http://localhost:${PROXY_PORT}`);
+    const baseUrl = `${isHttpsServer ? 'https' : 'http'}://localhost:${PROXY_PORT}`;
+    console.log(`📡 Listening on: ${baseUrl}`);
     console.log(`🌐 CORS dynamic origins enabled`);
     console.log('\n📋 Available endpoints:');
     
@@ -296,12 +310,21 @@ server.listen(PROXY_PORT, () => {
         console.log(`   /${name}/foglamp/ping   → ${INSTANCES[name]}`);
     });
     
-    console.log(`\n🏥 Health check: http://localhost:${PROXY_PORT}/health`);
+    console.log(`\n🏥 Health check: ${baseUrl}/health`);
     console.log('\n⭐ Your Excel add-in can now access all instances!');
     console.log('⏹️  Press Ctrl+C to stop the proxy');
     console.log('\n🌍 Allowed origins:');
     ALLOWED_ORIGINS.forEach(o => console.log(`   ${o}`));
     console.log('   *.sharepoint.com (wildcard)');
+
+    if (!isHttpsServer) {
+        console.log('\nℹ️  Tip: Excel Web requires HTTPS to call the proxy.');
+        console.log('   Generate local certs and restart in HTTPS mode:');
+        console.log('   1) mkdir -p certs');
+        console.log('   2) mkcert -install');
+        console.log('   3) mkcert -key-file certs/localhost-key.pem -cert-file certs/localhost.pem localhost 127.0.0.1 ::1');
+        console.log('   4) Restart normally (HTTPS will auto-enable if certs are found)');
+    }
 });
 
 // Graceful shutdown

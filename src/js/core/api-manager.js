@@ -205,32 +205,46 @@ export class FogLAMPAPIManager {
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
         try {
-            // Prefer proxy in web for non-local URLs when proxy available
-            if (isWeb && !isLocal && this.smartManager && this.smartManager.proxyAvailable) {
+            // Prefer proxy in web for non-local URLs.
+            // Try HTTPS first on HTTPS pages, then HTTP, regardless of current proxyAvailable flag.
+            if (isWeb && !isLocal) {
                 const path = this._getProxyPath(baseUrl);
-                // Ensure mapping exists
-                try {
-                    await fetch(`${proxyBase}/config`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ instances: { [path]: baseUrl } })
-                    });
-                } catch (_) {}
+                const proxyCandidates = isHttpsPage
+                    ? [
+                        `https://localhost:${CONNECTION_CONFIG.PROXY_PORT || 3001}`,
+                        (CONNECTION_CONFIG.PROXY_BASE_URL || 'http://localhost:3001')
+                      ]
+                    : [ (CONNECTION_CONFIG.PROXY_BASE_URL || 'http://localhost:3001') ];
 
-                const resp = await fetch(`${proxyBase}/${path}${endpoint}`, {
-                    method,
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        ...options.headers
-                    },
-                    body: options.body,
-                    credentials: 'omit',
-                    mode: 'cors',
-                    signal: controller.signal
-                });
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
-                return await resp.json();
+                for (const candidateBase of proxyCandidates) {
+                    try {
+                        // Ensure mapping exists for this candidate
+                        try {
+                            await fetch(`${candidateBase}/config`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ instances: { [path]: baseUrl } })
+                            });
+                        } catch (_) {}
+
+                        const resp = await fetch(`${candidateBase}/${path}${endpoint}`, {
+                            method,
+                            headers: {
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json',
+                                ...options.headers
+                            },
+                            body: options.body,
+                            credentials: 'omit',
+                            mode: 'cors',
+                            signal: controller.signal
+                        });
+                        if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+                        return await resp.json();
+                    } catch (_tryNextProxy) {
+                        // Try next candidate or fall through to direct
+                    }
+                }
             }
 
             // Direct call

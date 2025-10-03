@@ -565,12 +565,14 @@ export class ExcelIntegrationManager {
                 if (rows && rows.length > 0) {
                     const dataRange = sheet.getRangeByIndexes(1, 0, rows.length, Math.max(1, headers.length));
                     dataRange.values = rows;
-                    // If first column is Timestamp, set a datetime format for that column
+                    // Apply timestamp format only when the first header is explicitly 'Timestamp'
                     try {
-                        const tsRange = sheet.getRangeByIndexes(1, 0, rows.length, 1);
-                        const fmt = this.exportFormats.readings.dateFormat;
-                        const fmtMatrix = Array(rows.length).fill([fmt]);
-                        tsRange.numberFormat = fmtMatrix;
+                        if (headers && headers.length > 0 && String(headers[0]).toLowerCase() === 'timestamp') {
+                            const tsRange = sheet.getRangeByIndexes(1, 0, rows.length, 1);
+                            const fmt = this.exportFormats.readings.dateFormat;
+                            const fmtMatrix = Array(rows.length).fill([fmt]);
+                            tsRange.numberFormat = fmtMatrix;
+                        }
                     } catch (_e) {}
                 }
 
@@ -981,17 +983,47 @@ export class ExcelIntegrationManager {
      */
     buildSummaryTable(summary, asset, datapoint) {
         try {
-            let minVal = '', maxVal = '', avgVal = '';
-            if (summary && typeof summary === 'object') {
-                const key = datapoint;
-                const node = summary[key] || summary;
-                minVal = node.min ?? node.minimum ?? '';
-                maxVal = node.max ?? node.maximum ?? '';
-                avgVal = node.average ?? node.avg ?? '';
+            let chosenDatapoint = datapoint || '';
+            let node = null;
+
+            // Accept both array and object forms
+            if (Array.isArray(summary)) {
+                // Expect first element to be an object mapping dpName -> stats
+                const first = summary[0] || {};
+                if (chosenDatapoint && first && Object.prototype.hasOwnProperty.call(first, chosenDatapoint)) {
+                    node = first[chosenDatapoint];
+                } else {
+                    const keys = Object.keys(first);
+                    if (keys.length > 0) {
+                        chosenDatapoint = chosenDatapoint || keys[0];
+                        node = first[chosenDatapoint];
+                    }
+                }
+            } else if (summary && typeof summary === 'object') {
+                // Two possibilities:
+                // 1) summary is the stats object { min, max, average }
+                // 2) summary is a mapping { dpName: { min, max, average } }
+                const looksLikeStats = ['min','max','average','minimum','maximum','avg'].some(k => Object.prototype.hasOwnProperty.call(summary, k));
+                if (looksLikeStats) {
+                    node = summary;
+                } else if (chosenDatapoint && Object.prototype.hasOwnProperty.call(summary, chosenDatapoint)) {
+                    node = summary[chosenDatapoint];
+                } else {
+                    const keys = Object.keys(summary);
+                    if (keys.length > 0) {
+                        chosenDatapoint = chosenDatapoint || keys[0];
+                        node = summary[chosenDatapoint];
+                    }
+                }
             }
+
+            const minVal = node ? (node.min ?? node.minimum ?? '') : '';
+            const maxVal = node ? (node.max ?? node.maximum ?? '') : '';
+            const avgVal = node ? (node.average ?? node.avg ?? '') : '';
+
             return {
                 headers: ['Asset', 'Datapoint', 'Min', 'Max', 'Average'],
-                rows: [[asset, datapoint || '', minVal, maxVal, avgVal]]
+                rows: [[asset, chosenDatapoint, minVal, maxVal, avgVal]]
             };
         } catch (_e) {
             return { headers: ['No Data'], rows: [['No summary available']] };
@@ -1154,9 +1186,7 @@ export class ExcelIntegrationManager {
         // Route based on output type
         const ot = params.outputType || 'raw';
         if (ot === 'summary') {
-            if (!datapoint) {
-                throw new Error('Summary requires a datapoint selection');
-            }
+            // Allow asset-level summary when no datapoint is provided
             return await window.FogLAMP.api.readingsSummary(asset, datapoint, queryParams);
         } else if (ot === 'timespan') {
             // timespan is available for asset overall or specific datapoint; supports no aggregate/group

@@ -200,6 +200,7 @@ export class FogLAMPAPIManager {
         const proxyBaseHttps = `https://localhost:${CONNECTION_CONFIG.PROXY_PORT || 3001}`;
         const proxyBaseHttp = CONNECTION_CONFIG.PROXY_BASE_URL || 'http://localhost:3001';
         const proxyBase = isHttpsPage ? proxyBaseHttps : proxyBaseHttp;
+        const discoveredProxyBase = (this.smartManager && this.smartManager.PROXY_BASE_URL) ? this.smartManager.PROXY_BASE_URL : null;
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -209,12 +210,18 @@ export class FogLAMPAPIManager {
             // Try HTTPS first on HTTPS pages, then HTTP, regardless of current proxyAvailable flag.
             if (isWeb && !isLocal) {
                 const path = this._getProxyPath(baseUrl);
-                const proxyCandidates = isHttpsPage
-                    ? [
+                let proxyCandidates;
+                if (discoveredProxyBase && /^https:\/\//i.test(discoveredProxyBase)) {
+                    // If we've already discovered a working HTTPS proxy, don't try HTTP fallback
+                    proxyCandidates = [discoveredProxyBase];
+                } else if (isHttpsPage) {
+                    proxyCandidates = [
                         `https://localhost:${CONNECTION_CONFIG.PROXY_PORT || 3001}`,
                         (CONNECTION_CONFIG.PROXY_BASE_URL || 'http://localhost:3001')
-                      ]
-                    : [ (CONNECTION_CONFIG.PROXY_BASE_URL || 'http://localhost:3001') ];
+                    ];
+                } else {
+                    proxyCandidates = [ (CONNECTION_CONFIG.PROXY_BASE_URL || 'http://localhost:3001') ];
+                }
 
                 for (const candidateBase of proxyCandidates) {
                     try {

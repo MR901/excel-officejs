@@ -17,7 +17,8 @@ class SmartFogLAMPManager {
         this.DEFAULT_FOGLAMP_PORT = '8081';
         this.PROXY_TIMEOUT_MS = 2000;
         this.CONNECTION_TIMEOUT_MS = 3000;
-        this.PROXY_BASE_URL = `http://localhost:${this.PROXY_PORT}`;
+        // Resolved dynamically (prefers HTTPS for Excel Web; falls back to HTTP)
+        this.PROXY_BASE_URL = null;
     }
 
     // Load instances from user registration system
@@ -92,7 +93,7 @@ class SmartFogLAMPManager {
         }
     }
 
-    // Get proxy configuration for the simple-proxy.js server
+    // Get proxy configuration for the local proxy server
     getProxyConfiguration() {
         const config = {};
         
@@ -102,6 +103,28 @@ class SmartFogLAMPManager {
         });
         
         return config;
+    }
+
+    // Resolve proxy base URL by trying HTTPS first, then HTTP
+    async resolveProxyBaseUrl() {
+        const candidates = [
+            `https://localhost:${this.PROXY_PORT}`,
+            `http://localhost:${this.PROXY_PORT}`
+        ];
+        for (const base of candidates) {
+            try {
+                const controller = new AbortController();
+                setTimeout(() => controller.abort(), this.PROXY_TIMEOUT_MS);
+                const res = await fetch(`${base}/health`, { method: 'GET', signal: controller.signal });
+                if (res.ok) {
+                    this.PROXY_BASE_URL = base;
+                    return base;
+                }
+            } catch (_e) {
+                // Continue to next candidate
+            }
+        }
+        return null;
     }
 
     // Detect Excel environment
@@ -165,15 +188,10 @@ class SmartFogLAMPManager {
             // Ensure we have the latest registered instances before configuring proxy
             this.loadUserRegisteredInstances();
 
-            const controller = new AbortController();
-            setTimeout(() => controller.abort(), this.PROXY_TIMEOUT_MS);
+            // Dynamically resolve proxy base URL (HTTPS preferred)
+            const resolved = await this.resolveProxyBaseUrl();
 
-            const response = await fetch(`${this.PROXY_BASE_URL}/health`, {
-                method: 'GET',
-                signal: controller.signal
-            });
-
-            if (response.ok) {
+            if (resolved) {
                 this.proxyAvailable = true;
                 console.log('✅ Proxy server available');
                 

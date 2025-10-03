@@ -26,7 +26,7 @@ For Excel Web accessing private network instances (192.168.x.x, 10.x.x.x):
 
 ```bash
 # Start the proxy server on your local machine
-node simple-proxy.js
+node proxy_server.js
 
 # Then click "Refresh Connections" in the add-in
 # Proxy badge should show: 🔗 Proxy Available
@@ -58,7 +58,7 @@ node simple-proxy.js
 - Test with: `curl http://192.168.1.100:8081/foglamp/ping`
 
 **Ping fails (Excel Web)**
-- Start proxy server: `node simple-proxy.js`
+- Start proxy server: `node proxy_server.js`
 - Click "Refresh Connections"
 
 **Export fails**
@@ -85,7 +85,7 @@ excel-officejs/
 ├── manifest.xml           # Office add-in manifest
 ├── taskpane.html          # Taskpane UI
 ├── smart-connection.js    # Smart connection manager
-└── simple-proxy.js        # Proxy server for Excel Web
+└── proxy_server.js        # Proxy server for Excel Web
 ```
 
 ## 🏗️ **Architecture**

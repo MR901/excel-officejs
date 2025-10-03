@@ -118,7 +118,7 @@ Excel Web + Private Networks
 
 1. **Start Proxy** (on local machine, same network as FogLAMP)::
 
-     node simple-proxy.js
+     node proxy_server.js
 
 2. **Refresh** in add-in
    

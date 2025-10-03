@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Simple FogLAMP Proxy Server
-// Run: node simple-proxy.js
+// Run: node proxy_server.js
 // No dependencies needed - uses built-in Node.js modules only
 
 const http = require('http');
@@ -290,13 +290,46 @@ if (shouldEnableHttps && resolvedKeyPath && resolvedCertPath) {
 
 // Surface lower-level HTTP parser errors
 server.on('clientError', (err, socket) => {
-    console.error(`⚠️  clientError: ${err && err.message ? err.message : String(err)}`);
+    const message = err && err.message ? err.message : String(err);
+    const remote = socket && socket.remoteAddress ? socket.remoteAddress : 'unknown';
+    const isHttpOnHttps = isHttpsServer && /http request/i.test(message);
+
+    if (isHttpOnHttps) {
+        // Common when a plaintext HTTP client hits the HTTPS listener
+        console.warn(`⚠️  HTTP request received on HTTPS port from ${remote} — sent 400`);
+        try {
+            socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\nContent-Type: text/plain\r\n\r\nThis port expects HTTPS. Try https://localhost:3001\r\n');
+        } catch (_) {
+            try { socket.destroy(); } catch (_) {}
+        }
+        return;
+    }
+
+    console.error(`⚠️  clientError from ${remote}: ${message}`);
     try {
         socket.end('HTTP/1.1 400 Bad Request\r\n\r\n');
     } catch (_) {
         try { socket.destroy(); } catch (_) {}
     }
 });
+
+// Surface TLS handshake errors more cleanly in HTTPS mode
+if (isHttpsServer && typeof server.on === 'function') {
+    server.on('tlsClientError', (err, socket) => {
+        const message = err && err.message ? err.message : String(err);
+        const remote = socket && socket.remoteAddress ? socket.remoteAddress : 'unknown';
+        if (/http request/i.test(message)) {
+            console.warn(`⚠️  HTTP request received on HTTPS port from ${remote} — sent 400`);
+            try {
+                socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\nContent-Type: text/plain\r\n\r\nThis port expects HTTPS. Try https://localhost:3001\r\n');
+            } catch (_) {
+                try { socket.destroy(); } catch (_) {}
+            }
+            return;
+        }
+        console.error(`🔒 tlsClientError from ${remote}: ${message}`);
+    });
+}
 
 // Start server
 server.listen(PROXY_PORT, () => {

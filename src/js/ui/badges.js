@@ -187,7 +187,7 @@ export class BadgeManager {
                     <strong>⚠️ Private Network Access Issue</strong>
                     <p>Excel Web cannot access private IP addresses (192.168.x.x). 
                        Start the proxy server to enable access:</p>
-                    <code>node simple-proxy.js</code>
+                    <code>node proxy_server.js</code>
                     <p><small>Or use Excel Desktop for direct access.</small></p>
                 </div>
             `;

@@ -1176,54 +1176,76 @@ export class ExcelIntegrationManager {
      */
     async fetchReadingsData(asset, params) {
         const datapoint = params.datapoint && params.datapoint.trim() !== '' ? params.datapoint : null;
-        const queryParams = {};
-        // Only include limit/skip in latest mode
-        if (params.mode === 'latest') {
-            if (params.limit && params.limit > 0) queryParams.limit = params.limit;
-            if (params.skip && params.skip > 0) queryParams.skip = params.skip;
-        }
-        if (params.seconds && params.seconds > 0) queryParams.seconds = params.seconds;
-        if (params.minutes && params.minutes > 0) queryParams.minutes = params.minutes;
-        if (params.hours && params.hours > 0) queryParams.hours = params.hours;
-        if (params.previous && params.previous > 0) queryParams.previous = params.previous;
-
         // Route based on output type
         const ot = params.outputType || 'raw';
         if (ot === 'summary') {
-            // Prefer per-URL call to ensure proxy-safe access in web environments
+            // Build summary-safe params: no limit/skip; include time window/previous only
+            const summaryParams = {};
+            if (params.mode === 'window') {
+                if (params.seconds && params.seconds > 0) summaryParams.seconds = params.seconds;
+                if (params.minutes && params.minutes > 0) summaryParams.minutes = params.minutes;
+                if (params.hours && params.hours > 0) summaryParams.hours = params.hours;
+            } else if (params.mode === 'previous') {
+                if (params.previous && params.previous > 0) summaryParams.previous = params.previous;
+                if (params.seconds && params.seconds > 0) summaryParams.seconds = params.seconds;
+                if (params.minutes && params.minutes > 0) summaryParams.minutes = params.minutes;
+                if (params.hours && params.hours > 0) summaryParams.hours = params.hours;
+            }
             const activeInstance = getActiveInstanceWithMeta();
             const baseUrl = activeInstance?.url;
             if (baseUrl && window.FogLAMP?.api?.readingsSummaryForUrl) {
-                return await window.FogLAMP.api.readingsSummaryForUrl(baseUrl, asset, datapoint, queryParams);
+                return await window.FogLAMP.api.readingsSummaryForUrl(baseUrl, asset, datapoint, summaryParams);
             }
-            return await window.FogLAMP.api.readingsSummary(asset, datapoint, queryParams);
+            return await window.FogLAMP.api.readingsSummary(asset, datapoint, summaryParams);
         } else if (ot === 'timespan') {
+            // Timespan endpoint should not receive limit/skip or time window params
             const activeInstance = getActiveInstanceWithMeta();
             const baseUrl = activeInstance?.url;
             if (baseUrl && window.FogLAMP?.api?.readingsTimespanForUrl) {
-                return await window.FogLAMP.api.readingsTimespanForUrl(baseUrl, asset, datapoint, queryParams);
+                return await window.FogLAMP.api.readingsTimespanForUrl(baseUrl, asset, datapoint, {});
             }
-            return await window.FogLAMP.api.readingsTimespan(asset, datapoint, queryParams);
+            return await window.FogLAMP.api.readingsTimespan(asset, datapoint, {});
         }
 
         // Default: raw readings
         // Prefer smart manager if available for web, else unified API
+        const rawParams = {};
+        if (params.mode === 'latest') {
+            if (params.limit && params.limit > 0) rawParams.limit = params.limit;
+            if (params.skip && params.skip > 0) rawParams.skip = params.skip;
+        } else if (params.mode === 'window') {
+            if (params.seconds && params.seconds > 0) rawParams.seconds = params.seconds;
+            if (params.minutes && params.minutes > 0) rawParams.minutes = params.minutes;
+            if (params.hours && params.hours > 0) rawParams.hours = params.hours;
+            // Respect limit in window mode if provided
+            if (params.limit && params.limit > 0) rawParams.limit = params.limit;
+            if (params.skip && params.skip > 0) rawParams.skip = params.skip;
+        } else if (params.mode === 'previous') {
+            if (params.previous && params.previous > 0) rawParams.previous = params.previous;
+            if (params.seconds && params.seconds > 0) rawParams.seconds = params.seconds;
+            if (params.minutes && params.minutes > 0) rawParams.minutes = params.minutes;
+            if (params.hours && params.hours > 0) rawParams.hours = params.hours;
+            // Respect limit/skip in previous mode as well
+            if (params.limit && params.limit > 0) rawParams.limit = params.limit;
+            if (params.skip && params.skip > 0) rawParams.skip = params.skip;
+        }
+
         if (window.smartManager && window.smartManager.foglampReadings) {
-            return await window.smartManager.foglampReadings(asset, datapoint, queryParams);
+            return await window.smartManager.foglampReadings(asset, datapoint, rawParams);
         } else if (window.foglampAssetReadingsSmart) {
             return await window.foglampAssetReadingsSmart(
                 asset,
                 datapoint,
-                queryParams.limit,
-                queryParams.skip,
-                queryParams.seconds,
-                queryParams.minutes,
-                queryParams.hours,
-                queryParams.previous
+                rawParams.limit,
+                rawParams.skip,
+                rawParams.seconds,
+                rawParams.minutes,
+                rawParams.hours,
+                rawParams.previous
             );
         } else {
             // Unified API direct
-            return await window.FogLAMP.api.readings(asset, datapoint, queryParams);
+            return await window.FogLAMP.api.readings(asset, datapoint, rawParams);
         }
     }
 

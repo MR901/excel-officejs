@@ -48,6 +48,8 @@ export class AssetManager {
         if (!assetSelect) return;
 
         const activeInstance = getActiveInstance();
+        // Capture the instance URL at the start to avoid cross-instance UI updates
+        const requestInstance = activeInstance;
         if (!activeInstance) {
             this.setAssetSelectState('no-instance', 'No active instance');
             return;
@@ -66,6 +68,14 @@ export class AssetManager {
             // Check cache first
             const cachedAssets = this.assetCache.get(activeInstance);
             if (cachedAssets && this.isCacheValid(activeInstance)) {
+                // Guard against race: ensure active instance hasn't changed
+                if (getActiveInstance() !== requestInstance) {
+                    logMessage('info', 'Skipped cached asset populate due to instance change', {
+                        requested: requestInstance,
+                        current: getActiveInstance()
+                    });
+                    return;
+                }
                 this.populateAssetSelect(cachedAssets);
                 logMessage('info', `Loaded ${cachedAssets.length} assets from cache`);
                 return;
@@ -75,6 +85,14 @@ export class AssetManager {
             const assets = await this.fetchAssetsFromInstance(activeInstance);
             
             if (assets && assets.length > 0) {
+                // Guard against race: ensure active instance hasn't changed
+                if (getActiveInstance() !== requestInstance) {
+                    logMessage('info', 'Skipped fetched asset populate due to instance change', {
+                        requested: requestInstance,
+                        current: getActiveInstance()
+                    });
+                    return;
+                }
                 this.cacheAssets(activeInstance, assets);
                 this.populateAssetSelect(assets);
                 this.resetRetryCount(activeInstance);
@@ -136,6 +154,12 @@ export class AssetManager {
             // Prefer targeting the active instance explicitly to avoid cross-instance data leaks
             if (window.FogLAMP && window.FogLAMP.api && typeof window.FogLAMP.api.assetsForUrl === 'function' && instanceUrl) {
                 return await window.FogLAMP.api.assetsForUrl(instanceUrl);
+            }
+
+            // Stronger explicit fallback: call the URL-specific API path directly if available
+            if (window.FogLAMP && window.FogLAMP.api && typeof window.FogLAMP.api.apiCallForUrl === 'function' && instanceUrl) {
+                const endpoint = (window.FogLAMP.api.apiEndpoints && window.FogLAMP.api.apiEndpoints.assets) ? window.FogLAMP.api.apiEndpoints.assets : '/foglamp/asset';
+                return await window.FogLAMP.api.apiCallForUrl(instanceUrl, endpoint);
             }
 
             // Fallback: unified API (may use smart selection)

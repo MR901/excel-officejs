@@ -621,7 +621,14 @@ export class ExcelIntegrationManager {
                     // Normalize summary into a mapping { dpName: {min,max,average} }
                     let mapping = {};
                     if (Array.isArray(entry.summary)) {
-                        mapping = entry.summary[0] || {};
+                        // Some FogLAMP deployments return an array of single-key objects per datapoint
+                        // Merge them to a single mapping
+                        mapping = entry.summary.reduce((acc, obj) => {
+                            if (obj && typeof obj === 'object') {
+                                Object.keys(obj).forEach((k) => { acc[k] = obj[k]; });
+                            }
+                            return acc;
+                        }, {});
                     } else if (entry.summary && typeof entry.summary === 'object') {
                         const looksLikeStats = ['min','max','average','minimum','maximum','avg']
                             .some(k => Object.prototype.hasOwnProperty.call(entry.summary, k));

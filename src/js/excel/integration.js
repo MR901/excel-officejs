@@ -1425,6 +1425,19 @@ export class ExcelIntegrationManager {
             });
         } catch (_e) {}
 
+        // Prefer targeting the active instance explicitly to avoid cross-instance selection
+        const activeInstance = getActiveInstanceWithMeta();
+        const baseUrl = activeInstance?.url;
+        if (baseUrl && window.FogLAMP?.api?.readingsForUrl) {
+            try {
+                try { logMessage('debug', 'Using FogLAMP.api.readingsForUrl with active instance', { baseUrl }); } catch (_e) {}
+                return await window.FogLAMP.api.readingsForUrl(baseUrl, asset, datapoint, rawParams);
+            } catch (_primaryError) {
+                try { logMessage('warn', 'Primary readingsForUrl failed, falling back to smart transport', { baseUrl }); } catch (_e) {}
+                // Fall through to smartManager/unified fallbacks below
+            }
+        }
+
         if (window.smartManager && typeof window.smartManager.foglampReadings === 'function') {
             try { logMessage('debug', 'Using smartManager.foglampReadings transport'); } catch (_e) {}
             return await window.smartManager.foglampReadings(asset, datapoint, rawParams);
@@ -1440,17 +1453,9 @@ export class ExcelIntegrationManager {
                 rawParams.hours,
                 rawParams.previous
             );
-        } else {
-            // Explicitly target the active instance when possible to avoid stale-instance reads
-            const activeInstance = getActiveInstanceWithMeta();
-            const baseUrl = activeInstance?.url;
-            if (baseUrl && window.FogLAMP?.api?.readingsForUrl) {
-                try { logMessage('debug', 'Using FogLAMP.api.readingsForUrl with active instance'); } catch (_e) {}
-                return await window.FogLAMP.api.readingsForUrl(baseUrl, asset, datapoint, rawParams);
-            }
-            try { logMessage('debug', 'Using unified FogLAMP.api.readings transport'); } catch (_e) {}
-            return await window.FogLAMP.api.readings(asset, datapoint, rawParams);
         }
+        try { logMessage('debug', 'Using unified FogLAMP.api.readings transport'); } catch (_e) {}
+        return await window.FogLAMP.api.readings(asset, datapoint, rawParams);
     }
 
     /**

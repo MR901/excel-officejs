@@ -475,13 +475,17 @@ export class ExcelIntegrationManager {
             return false;
         }
 
+        const exportParams = this.getExportParameters();
+        const outputTypeLocal = exportParams?.data?.outputType || 'raw';
         const asset = this.getSelectedAsset();
-        if (!asset) {
-            logMessage('warn', 'Export Readings: no asset specified');
-            return false;
+        if (outputTypeLocal !== 'combined') {
+            if (!asset) {
+                logMessage('warn', 'Export Readings: no asset specified');
+                return false;
+            }
         }
 
-        const exportParams = this.getExportParameters();
+        // Use previously fetched exportParams
         if (!exportParams.valid) {
             logMessage('warn', 'Export Readings: invalid parameters', exportParams.errors);
             if (window.FogLAMP?.errors) {

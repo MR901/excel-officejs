@@ -833,7 +833,11 @@ export class EventHandlerManager {
             } else {
                 timePart = `limit=${limit}, skip=${skip}`;
             }
-            el.textContent = `Output: ${ot} • Mode: ${mode} • Asset: ${asset || '—'}${datapoint ? `.${datapoint}` : ''} • ${timePart}`;
+            if (ot === 'combined') {
+                el.textContent = `Output: ${ot} • Instance-wide summary across all assets`;
+            } else {
+                el.textContent = `Output: ${ot} • Mode: ${mode} • Asset: ${asset || '—'}${datapoint ? `.${datapoint}` : ''} • ${timePart}`;
+            }
         } catch (_e) {}
     }
 
@@ -847,8 +851,8 @@ export class EventHandlerManager {
             };
             // Mode section visible for raw only
             show('fl-mode-section', ot === 'raw');
-            // Asset row always visible
-            show('fl-asset-row', true);
+            // Asset row hidden for combined (not needed)
+            show('fl-asset-row', ot !== 'combined');
             // Datapoint+limit row for raw
             show('fl-dp-limit-row', ot === 'raw');
             show('fl-skip-row', ot === 'raw');

@@ -527,35 +527,30 @@ export class ExcelIntegrationManager {
                 params: exportParams.data
             });
 
-        const readings = await this.fetchReadingsData(asset, exportParams.data);
-            if (!readings || readings.length === 0) {
-                logMessage('warn', 'No readings data found for export', { asset });
-                return false;
-            }
-
             // Build table based on outputType
             let headers, rows;
             const ot = exportParams.data.outputType || 'raw';
-            if (ot === 'summary') {
-                const t = this.buildSummaryTable(readings, asset, exportParams.data.datapoint);
-                headers = t.headers; rows = t.rows;
-            } else if (ot === 'timespan') {
-                const t = this.buildTimespanTable(readings, asset, exportParams.data.datapoint);
-                headers = t.headers; rows = t.rows;
-            } else if (ot === 'combined') {
+            if (ot === 'combined') {
                 // Build upgraded combined output across ALL assets for the active instance
                 // Table 1: Assets-wise summary (vertical blocks per asset)
                 // Table 2: Asset & datapoint wise summary (tabular)
                 const instanceName = getDisplayName(activeInstance);
                 const baseUrl = activeInstance?.url || null;
 
-                // Fetch asset list
-                const allAssets = await this.fetchAssetsData();
+                // Fetch asset list for ACTIVE INSTANCE ONLY to avoid data leaks
+                let allAssets = [];
+                try {
+                    if (baseUrl && window.FogLAMP?.api?.assetsForUrl) {
+                        allAssets = await window.FogLAMP.api.assetsForUrl(baseUrl);
+                    } else if (window.FogLAMP?.api?.assets) {
+                        allAssets = await window.FogLAMP.api.assets();
+                    }
+                } catch (_e) {}
                 const assetEntries = Array.isArray(allAssets) ? allAssets : [];
 
                 // Prepare per-asset timespan and summary in parallel
                 const perAssetData = await Promise.all(assetEntries.map(async (a) => {
-                    const assetName = a.assetCode || a.asset || a.name || '';
+                    const assetName = (typeof a === 'string') ? a : (a.assetCode || a.asset || a.name || '');
                     const readingCount = a.count || 0;
                     let timespan = null;
                     let summary = null;
@@ -648,8 +643,22 @@ export class ExcelIntegrationManager {
                     });
                 });
             } else {
-                const t = this.buildSimpleReadings(readings, asset, exportParams.data.datapoint);
-                headers = t.headers; rows = t.rows;
+                // Fetch readings only for non-combined outputs
+                const readings = await this.fetchReadingsData(asset, exportParams.data);
+                if (!readings || readings.length === 0) {
+                    logMessage('warn', 'No readings data found for export', { asset });
+                    return false;
+                }
+                if (ot === 'summary') {
+                    const t = this.buildSummaryTable(readings, asset, exportParams.data.datapoint);
+                    headers = t.headers; rows = t.rows;
+                } else if (ot === 'timespan') {
+                    const t = this.buildTimespanTable(readings, asset, exportParams.data.datapoint);
+                    headers = t.headers; rows = t.rows;
+                } else {
+                    const t = this.buildSimpleReadings(readings, asset, exportParams.data.datapoint);
+                    headers = t.headers; rows = t.rows;
+                }
             }
 
             // Determine target column count and normalize rows to avoid Excel range mismatch

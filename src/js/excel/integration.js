@@ -19,12 +19,12 @@ export class ExcelIntegrationManager {
         this.exportFormats = {
             status: {
                 sheetSuffix: 'Status',  // Simplified for Excel sheet name compliance
-                dateFormat: 'mm/dd/yyyy hh:mm:ss AM/PM',
+                dateFormat: '[$-en-US]mm/dd/yyyy hh:mm:ss AM/PM',
                 headers: ['Type', 'Data']
             },
             readings: {
                 sheetSuffix: 'data',  // Simplified for Excel sheet name compliance  
-                dateFormat: 'mm/dd/yyyy hh:mm:ss AM/PM',
+                dateFormat: '[$-en-US]mm/dd/yyyy hh:mm:ss AM/PM',
                 timestampColumn: 'timestamp'
             }
         };
@@ -734,6 +734,57 @@ export class ExcelIntegrationManager {
                     } catch (_e) {}
                 }
 
+                // Apply requested formatting for combined export
+                if (ot === 'combined') {
+                    try {
+                        const totalCols = Math.max(1, targetColCount);
+                        // Compute key row indices (relative to dataStartRowIndex)
+                        const instanceLabelRowAbs = dataStartRowIndex + 0; // 'Instance Name:'
+                        const table1LabelRowAbs = dataStartRowIndex + 2;   // 'Table1: Assets-wise summary'
+                        const sNoRowAbs = dataStartRowIndex + 3;            // 'SNo.' row (Table1)
+                        const assetsRowAbs = dataStartRowIndex + 4;         // 'Assets' row (Table1)
+                        const readingsRowAbs = dataStartRowIndex + 5;       // 'Readings' row (Table1)
+                        const oldestRowAbs = dataStartRowIndex + oldestRowIndex; // 'Oldest Reading Timestamp:'
+                        const newestRowAbs = dataStartRowIndex + newestRowIndex; // 'Newest Reading Timestamp:'
+
+                        // Find Table2 label and header rows
+                        const table2LabelRel = Array.isArray(normalizedRows)
+                            ? normalizedRows.findIndex(r => Array.isArray(r) && r[0] === 'Table2: Asset & datapoint wise summary')
+                            : -1;
+                        const table2LabelRowAbs = table2LabelRel >= 0 ? (dataStartRowIndex + table2LabelRel) : -1;
+                        const table2HeaderRowAbs = table2LabelRowAbs >= 0 ? (table2LabelRowAbs + 1) : -1; // ['SNo.','Asset','Datapoint','Min','Max','Average']
+
+                        // 1) White font on black background for label rows
+                        const labelRows = [instanceLabelRowAbs, table1LabelRowAbs].concat(table2LabelRowAbs >= 0 ? [table2LabelRowAbs] : []);
+                        for (const row of labelRows) {
+                            const rng = sheet.getRangeByIndexes(row, 0, 1, totalCols);
+                            rng.format.fill.color = '#000000';
+                            rng.format.font.color = '#FFFFFF';
+                            rng.format.font.bold = true;
+                            rng.format.horizontalAlignment = 'Center';
+                            rng.format.verticalAlignment = 'Center';
+                        }
+
+                        // 2) Blue background for Table1 label cells in column A
+                        const table1LabelCellRows = [sNoRowAbs, assetsRowAbs, readingsRowAbs, oldestRowAbs, newestRowAbs];
+                        for (const row of table1LabelCellRows) {
+                            const cell = sheet.getRangeByIndexes(row, 0, 1, 1);
+                            cell.format.fill.color = '#0078D4';
+                            cell.format.font.bold = true;
+                        }
+
+                        // 3) Green background for Table2 header row (first 6 columns)
+                        if (table2HeaderRowAbs >= 0) {
+                            const width = Math.min(totalCols, 6);
+                            const headerRng = sheet.getRangeByIndexes(table2HeaderRowAbs, 0, 1, width);
+                            headerRng.format.fill.color = '#22C55E';
+                            headerRng.format.font.bold = true;
+                            headerRng.format.horizontalAlignment = 'Center';
+                            headerRng.format.verticalAlignment = 'Center';
+                        }
+                    } catch (_e) {}
+                }
+
                 // Freeze panes: keep top 14 rows frozen for RAW so only readings scroll
                 try {
                     if (isRawOutput) {
@@ -1116,8 +1167,9 @@ export class ExcelIntegrationManager {
             const rows = readings.map(r => {
                 const ts = r.user_ts || r.timestamp || '';
                 const asDate = this.parseFoglampTimestamp(ts);
+                const tsCell = (asDate instanceof Date) ? asDate : (ts ? new Date(ts) : '');
                 return [
-                    asDate || ts,
+                    tsCell,
                     asset,
                     r.reading && Object.prototype.hasOwnProperty.call(r.reading, dpKey) ? r.reading[dpKey] : ''
                 ];
@@ -1130,8 +1182,9 @@ export class ExcelIntegrationManager {
         const rows = readings.map(r => {
             const ts = r.user_ts || r.timestamp || '';
             const asDate = this.parseFoglampTimestamp(ts);
+            const tsCell = (asDate instanceof Date) ? asDate : (ts ? new Date(ts) : '');
             return [
-                asDate || ts,
+                tsCell,
                 asset,
                 ...dpList.map(k => (r.reading && Object.prototype.hasOwnProperty.call(r.reading, k) ? r.reading[k] : ''))
             ];

@@ -591,7 +591,8 @@ export class ExcelIntegrationManager {
                 const toDate = (ts) => {
                     if (!ts) return '';
                     const d = this.parseFoglampTimestamp(ts) || new Date(ts);
-                    return (d instanceof Date && !isNaN(d.getTime())) ? d : '';
+                    if (!(d instanceof Date) || isNaN(d.getTime())) return '';
+                    return this.convertDateToOADate(d);
                 };
 
                 const sNoRow = ['SNo.', ...perAssetData.map((_, idx) => idx + 1)];
@@ -738,25 +739,36 @@ export class ExcelIntegrationManager {
                 if (ot === 'combined') {
                     try {
                         const totalCols = Math.max(1, targetColCount);
-                        // Compute key row indices (relative to dataStartRowIndex)
-                        const instanceLabelRowAbs = dataStartRowIndex + 0; // 'Instance Name:'
-                        const table1LabelRowAbs = dataStartRowIndex + 2;   // 'Table1: Assets-wise summary'
-                        const sNoRowAbs = dataStartRowIndex + 3;            // 'SNo.' row (Table1)
-                        const assetsRowAbs = dataStartRowIndex + 4;         // 'Assets' row (Table1)
-                        const readingsRowAbs = dataStartRowIndex + 5;       // 'Readings' row (Table1)
-                        const oldestRowAbs = dataStartRowIndex + oldestRowIndex; // 'Oldest Reading Timestamp:'
-                        const newestRowAbs = dataStartRowIndex + newestRowIndex; // 'Newest Reading Timestamp:'
 
-                        // Find Table2 label and header rows
-                        const table2LabelRel = Array.isArray(normalizedRows)
-                            ? normalizedRows.findIndex(r => Array.isArray(r) && r[0] === 'Table2: Asset & datapoint wise summary')
-                            : -1;
-                        const table2LabelRowAbs = table2LabelRel >= 0 ? (dataStartRowIndex + table2LabelRel) : -1;
-                        const table2HeaderRowAbs = table2LabelRowAbs >= 0 ? (table2LabelRowAbs + 1) : -1; // ['SNo.','Asset','Datapoint','Min','Max','Average']
+                        // Helpers to find rows by content
+                        const findRowIndexByFirstCell = (text) => {
+                            if (!Array.isArray(normalizedRows)) return -1;
+                            const needle = String(text).trim();
+                            return normalizedRows.findIndex(r => Array.isArray(r) && String(r[0]).trim() === needle);
+                        };
 
-                        // 1) White font on black background for label rows
-                        const labelRows = [instanceLabelRowAbs, table1LabelRowAbs].concat(table2LabelRowAbs >= 0 ? [table2LabelRowAbs] : []);
-                        for (const row of labelRows) {
+                        // Locate key rows by their first-cell labels
+                        const instanceRowRel = findRowIndexByFirstCell('Instance Name:');
+                        const table1RowRel = findRowIndexByFirstCell('Table1: Assets-wise summary');
+                        const table2LabelRowRel = findRowIndexByFirstCell('Table2: Asset & datapoint wise summary');
+                        const table1SnoRel = findRowIndexByFirstCell('SNo.');
+                        const table1AssetsRel = findRowIndexByFirstCell('Assets');
+                        const table1ReadingsRel = findRowIndexByFirstCell('Readings');
+                        const table1OldestRel = findRowIndexByFirstCell('Oldest Reading Timestamp:');
+                        const table1NewestRel = findRowIndexByFirstCell('Newest Reading Timestamp:');
+
+                        const toAbs = (rel) => (rel >= 0 ? dataStartRowIndex + rel : -1);
+                        const instanceLabelRowAbs = toAbs(instanceRowRel);
+                        const table1LabelRowAbs = toAbs(table1RowRel);
+                        const table2LabelRowAbs = toAbs(table2LabelRowRel);
+
+                        // Table2 header is the row immediately after the Table2 label
+                        const table2HeaderRowAbs = table2LabelRowAbs >= 0 ? (table2LabelRowAbs + 1) : -1;
+
+                        // 1) White font on black background for label rows (Instance, Table1, Table2)
+                        const blackLabelRows = [instanceLabelRowAbs, table1LabelRowAbs].concat(table2LabelRowAbs >= 0 ? [table2LabelRowAbs] : []);
+                        for (const row of blackLabelRows) {
+                            if (row < 0) continue;
                             const rng = sheet.getRangeByIndexes(row, 0, 1, totalCols);
                             rng.format.fill.color = '#000000';
                             rng.format.font.color = '#FFFFFF';
@@ -766,11 +778,19 @@ export class ExcelIntegrationManager {
                         }
 
                         // 2) Blue background for Table1 label cells in column A
-                        const table1LabelCellRows = [sNoRowAbs, assetsRowAbs, readingsRowAbs, oldestRowAbs, newestRowAbs];
-                        for (const row of table1LabelCellRows) {
+                        const table1BlueRowsAbs = [
+                            toAbs(table1SnoRel),
+                            toAbs(table1AssetsRel),
+                            toAbs(table1ReadingsRel),
+                            toAbs(table1OldestRel),
+                            toAbs(table1NewestRel)
+                        ];
+                        for (const row of table1BlueRowsAbs) {
+                            if (row < 0) continue;
                             const cell = sheet.getRangeByIndexes(row, 0, 1, 1);
                             cell.format.fill.color = '#0078D4';
                             cell.format.font.bold = true;
+                            cell.format.font.color = '#000000'; // keep default dark for data, label stays readable
                         }
 
                         // 3) Green background for Table2 header row (first 6 columns)
@@ -1070,7 +1090,7 @@ export class ExcelIntegrationManager {
                     out[i] = cell;
                 } else if (cell instanceof Date) {
                     // Preserve Date objects so Excel can render native dates with numberFormat
-                    out[i] = cell;
+                    out[i] = this.convertDateToOADate(cell);
                 } else {
                     out[i] = String(cell);
                 }
@@ -1166,8 +1186,8 @@ export class ExcelIntegrationManager {
             const headers = ['Timestamp', 'Asset Name', dpKey];
             const rows = readings.map(r => {
                 const ts = r.user_ts || r.timestamp || '';
-                const asDate = this.parseFoglampTimestamp(ts);
-                const tsCell = (asDate instanceof Date) ? asDate : (ts ? new Date(ts) : '');
+                const asDate = this.parseFoglampTimestamp(ts) || (ts ? new Date(ts) : null);
+                const tsCell = (asDate instanceof Date && !isNaN(asDate.getTime())) ? this.convertDateToOADate(asDate) : '';
                 return [
                     tsCell,
                     asset,
@@ -1181,8 +1201,8 @@ export class ExcelIntegrationManager {
         const headers = ['Timestamp', 'Asset Name', ...dpList];
         const rows = readings.map(r => {
             const ts = r.user_ts || r.timestamp || '';
-            const asDate = this.parseFoglampTimestamp(ts);
-            const tsCell = (asDate instanceof Date) ? asDate : (ts ? new Date(ts) : '');
+            const asDate = this.parseFoglampTimestamp(ts) || (ts ? new Date(ts) : null);
+            const tsCell = (asDate instanceof Date && !isNaN(asDate.getTime())) ? this.convertDateToOADate(asDate) : '';
             return [
                 tsCell,
                 asset,
@@ -1588,6 +1608,19 @@ export class ExcelIntegrationManager {
             exportFormats: Object.keys(this.exportFormats),
             isExcelAvailable: typeof Excel !== 'undefined' && typeof Excel.run === 'function'
         };
+    }
+
+    /**
+     * Convert a JavaScript Date to Excel OLE Automation date (number of days since 1899-12-30)
+     * Excel stores dates as serial numbers where the integer part is days and the
+     * fractional part is the time of day.
+     * @param {Date} date
+     * @returns {number}
+     */
+    convertDateToOADate(date) {
+        if (!(date instanceof Date) || isNaN(date.getTime())) return '';
+        // 25569 is the number of days between 1899-12-30 and 1970-01-01
+        return date.getTime() / 86400000 + 25569;
     }
 
     /**

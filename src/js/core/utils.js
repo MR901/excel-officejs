@@ -132,6 +132,52 @@ export function truncate(str, length = 50, suffix = '...') {
 }
 
 /**
+ * Format a Date or date-like value using a limited strftime-style pattern.
+ * Supported tokens:
+ * %m - month (01-12)
+ * %d - day of month (01-31)
+ * %Y - 4-digit year
+ * %I - hour (01-12)
+ * %M - minute (00-59)
+ * %S - second (00-59)
+ * %p - AM/PM
+ *
+ * Note: This returns a string for UI/logs. For Excel, prefer passing
+ * actual Date objects and apply numberFormat on the range.
+ * @param {Date|string|number} input
+ * @param {string} pattern e.g. "%m/%d/%Y %I:%M:%S %p"
+ * @returns {string}
+ */
+export function formatDatePattern(input, pattern) {
+    if (!input) return '';
+    const d = input instanceof Date ? input : new Date(input);
+    if (isNaN(d.getTime())) return '';
+
+    const pad2 = (n) => String(n).padStart(2, '0');
+    let hours = d.getHours();
+    const minutes = d.getMinutes();
+    const seconds = d.getSeconds();
+    const isPM = hours >= 12;
+    const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+
+    const replacements = {
+        '%m': pad2(d.getMonth() + 1),
+        '%d': pad2(d.getDate()),
+        '%Y': String(d.getFullYear()),
+        '%I': pad2(hour12),
+        '%M': pad2(minutes),
+        '%S': pad2(seconds),
+        '%p': isPM ? 'PM' : 'AM'
+    };
+
+    return pattern.replace(/%[mdYIMSps]/g, (token) => {
+        return Object.prototype.hasOwnProperty.call(replacements, token)
+            ? replacements[token]
+            : token;
+    });
+}
+
+/**
  * Generate unique ID
  * @returns {string} Unique identifier
  */

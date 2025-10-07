@@ -19,12 +19,12 @@ export class ExcelIntegrationManager {
         this.exportFormats = {
             status: {
                 sheetSuffix: 'Status',  // Simplified for Excel sheet name compliance
-                dateFormat: 'mm/dd/yyyy hh:mm:ss',
+                dateFormat: 'mm/dd/yyyy hh:mm:ss AM/PM',
                 headers: ['Type', 'Data']
             },
             readings: {
                 sheetSuffix: 'data',  // Simplified for Excel sheet name compliance  
-                dateFormat: 'yyyy-mm-dd hh:mm:ss.000',
+                dateFormat: 'mm/dd/yyyy hh:mm:ss AM/PM',
                 timestampColumn: 'timestamp'
             }
         };
@@ -236,7 +236,7 @@ export class ExcelIntegrationManager {
                 })
             );
 
-            const nowIso = new Date().toISOString();
+            const nowDate = new Date();
             const colCount = instanceUrls.length + 2; // A: Section, B: Field, C..: instances
             const NA = 'NA';
 
@@ -270,7 +270,7 @@ export class ExcelIntegrationManager {
             // Build rows
             const rows = [];
             // Header timestamp
-            const tsRow = rows.length; rows.push(['Last Updated  at Timestamp', '', nowIso, ...Array(Math.max(0, colCount - 3)).fill('')]);
+            const tsRow = rows.length; rows.push(['Last Updated  at Timestamp', '', nowDate, ...Array(Math.max(0, colCount - 3)).fill('')]);
             // Spacer
             const spacer1Row = rows.length; rows.push(Array(colCount).fill(''));
             // Instance SNo.
@@ -339,6 +339,11 @@ export class ExcelIntegrationManager {
                 const range = sheet.getRangeByIndexes(0, 0, normalized.length, colCount);
                 range.values = normalized;
                     await context.sync();
+                    // Apply date number format to the single timestamp cell (column C) in header row
+                    try {
+                        const tsCell = sheet.getRangeByIndexes(tsRow, 2, 1, 1);
+                        tsCell.numberFormat = [[this.exportFormats.status.dateFormat]];
+                    } catch (_e) {}
 
                 // Formatting and merging for readability
                 try {
@@ -583,22 +588,25 @@ export class ExcelIntegrationManager {
                 rows.push(['Table1: Assets-wise summary']);
 
                 // Per-asset horizontal summary rows
-                const toIso = (ts) => {
+                const toDate = (ts) => {
                     if (!ts) return '';
                     const d = this.parseFoglampTimestamp(ts) || new Date(ts);
-                    return (d instanceof Date && !isNaN(d.getTime())) ? d.toISOString() : String(ts);
+                    return (d instanceof Date && !isNaN(d.getTime())) ? d : '';
                 };
 
                 const sNoRow = ['SNo.', ...perAssetData.map((_, idx) => idx + 1)];
                 const assetsRow = ['Assets', ...perAssetData.map((entry) => entry.assetName)];
                 const readingsRow = ['Readings', ...perAssetData.map((entry) => entry.readingCount)];
+                const assetsCount = perAssetData.length;
+                const oldestRowIndex = rows.length + 3; // sNoRow(0), assetsRow(1), readingsRow(2), then oldest at 3
+                const newestRowIndex = rows.length + 4; // newest follows oldest
                 const oldestRow = ['Oldest Reading Timestamp:', ...perAssetData.map((entry) => {
                     const obj = Array.isArray(entry.timespan) ? (entry.timespan[0] || {}) : (entry.timespan || {});
-                    return obj.oldest ? toIso(obj.oldest) : '';
+                    return obj.oldest ? toDate(obj.oldest) : '';
                 })];
                 const newestRow = ['Newest Reading Timestamp:', ...perAssetData.map((entry) => {
                     const obj = Array.isArray(entry.timespan) ? (entry.timespan[0] || {}) : (entry.timespan || {});
-                    return obj.newest ? toIso(obj.newest) : '';
+                    return obj.newest ? toDate(obj.newest) : '';
                 })];
 
                 rows.push(sNoRow);
@@ -682,9 +690,16 @@ export class ExcelIntegrationManager {
                 await context.sync();
                 } catch (_e) {}
 
+                // Determine start rows based on output type (offset for RAW)
+                const isRawOutput = (ot === 'raw');
+                const headerRowIndex = isRawOutput ? 13 : 0; // 0-based → Row 14
+                const dataStartRowIndex = isRawOutput
+                    ? 14 // 0-based → Row 15
+                    : ((Array.isArray(headers) && headers.length > 0) ? 1 : 0);
+
                 // Write headers
                 if (Array.isArray(headers) && headers.length > 0) {
-                    const headerRange = sheet.getRangeByIndexes(0, 0, 1, Math.max(1, targetColCount));
+                    const headerRange = sheet.getRangeByIndexes(headerRowIndex, 0, 1, Math.max(1, targetColCount));
                     headerRange.values = [normalizedHeader];
                     // Header styling
                     headerRange.format.fill.color = '#E6F2FF';
@@ -695,19 +710,36 @@ export class ExcelIntegrationManager {
 
                 // Write rows
                 if (normalizedRows && normalizedRows.length > 0) {
-                    const startRowOffset = (Array.isArray(headers) && headers.length > 0) ? 1 : 0;
-                    const dataRange = sheet.getRangeByIndexes(startRowOffset, 0, normalizedRows.length, Math.max(1, targetColCount));
+                    const dataRange = sheet.getRangeByIndexes(dataStartRowIndex, 0, normalizedRows.length, Math.max(1, targetColCount));
                     dataRange.values = normalizedRows;
                     // Apply timestamp format only when the first header is explicitly 'Timestamp'
                     try {
                         if (Array.isArray(headers) && headers.length > 0 && String(headers[0]).toLowerCase() === 'timestamp') {
-                            const tsRange = sheet.getRangeByIndexes(1, 0, normalizedRows.length, 1);
+                            const tsRange = sheet.getRangeByIndexes(dataStartRowIndex, 0, normalizedRows.length, 1);
                             const fmt = this.exportFormats.readings.dateFormat;
                             const fmtMatrix = Array(normalizedRows.length).fill([fmt]);
                             tsRange.numberFormat = fmtMatrix;
                         }
+                        // For combined output, format the row cells for oldest/newest timestamps as dates
+                        if (ot === 'combined' && assetsCount > 0) {
+                            const fmt = this.exportFormats.readings.dateFormat;
+                            const oldestRowAbs = dataStartRowIndex + oldestRowIndex;
+                            const newestRowAbs = dataStartRowIndex + newestRowIndex;
+                            const fmtRow = [Array(assetsCount).fill(fmt)];
+                            const oldestRange = sheet.getRangeByIndexes(oldestRowAbs, 1, 1, assetsCount);
+                            const newestRange = sheet.getRangeByIndexes(newestRowAbs, 1, 1, assetsCount);
+                            oldestRange.numberFormat = fmtRow;
+                            newestRange.numberFormat = fmtRow;
+                        }
                     } catch (_e) {}
                 }
+
+                // Freeze panes: keep top 14 rows frozen for RAW so only readings scroll
+                try {
+                    if (isRawOutput) {
+                        sheet.freezePanes.freezeRows(14);
+                    }
+                } catch (_e) {}
 
                 // Column widths for Get Readings sheet
                 try {
@@ -986,7 +1018,8 @@ export class ExcelIntegrationManager {
                 } else if (typeof cell === 'string' || typeof cell === 'number' || typeof cell === 'boolean') {
                     out[i] = cell;
                 } else if (cell instanceof Date) {
-                    out[i] = cell.toISOString();
+                    // Preserve Date objects so Excel can render native dates with numberFormat
+                    out[i] = cell;
                 } else {
                     out[i] = String(cell);
                 }

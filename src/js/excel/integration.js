@@ -601,14 +601,28 @@ export class ExcelIntegrationManager {
                 const assetsCount = perAssetData.length;
                 const oldestRowIndex = rows.length + 3; // sNoRow(0), assetsRow(1), readingsRow(2), then oldest at 3
                 const newestRowIndex = rows.length + 4; // newest follows oldest
-                const oldestRow = ['Oldest Reading Timestamp:', ...perAssetData.map((entry) => {
-                    const obj = Array.isArray(entry.timespan) ? (entry.timespan[0] || {}) : (entry.timespan || {});
-                    return obj.oldest ? toDate(obj.oldest) : '';
-                })];
-                const newestRow = ['Newest Reading Timestamp:', ...perAssetData.map((entry) => {
-                    const obj = Array.isArray(entry.timespan) ? (entry.timespan[0] || {}) : (entry.timespan || {});
-                    return obj.newest ? toDate(obj.newest) : '';
-                })];
+                // Helper to robustly extract oldest/newest timestamp from varying API shapes
+                const extractTimestamp = (node, which) => {
+                    const obj = Array.isArray(node) ? (node[0] || {}) : (node || {});
+                    const keys = which === 'oldest'
+                        ? ['oldest', 'start', 'first', 'minimum', 'min', 'earliest', 'from', 'oldestTimestamp']
+                        : ['newest', 'end', 'last', 'maximum', 'max', 'latest', 'to', 'newestTimestamp'];
+                    for (const k of keys) {
+                        if (obj && Object.prototype.hasOwnProperty.call(obj, k)) {
+                            const v = obj[k];
+                            if (v && typeof v === 'object') {
+                                const inner = v.timestamp || v.user_ts || v.ts || v.time || v.date || '';
+                                if (inner) return toDate(inner);
+                            } else if (v != null && v !== '') {
+                                return toDate(v);
+                            }
+                        }
+                    }
+                    return '';
+                };
+
+                const oldestRow = ['Oldest Reading Timestamp:', ...perAssetData.map((entry) => extractTimestamp(entry.timespan, 'oldest'))];
+                const newestRow = ['Newest Reading Timestamp:', ...perAssetData.map((entry) => extractTimestamp(entry.timespan, 'newest'))];
 
                 rows.push(sNoRow);
                 rows.push(assetsRow);
@@ -777,6 +791,40 @@ export class ExcelIntegrationManager {
                             rng.format.verticalAlignment = 'Center';
                         }
 
+                        // 1a) Override alignment for instance name cell (column B) to Left
+                        if (instanceLabelRowAbs >= 0) {
+                            const instanceNameCell = sheet.getRangeByIndexes(instanceLabelRowAbs, 1, 1, 1);
+                            instanceNameCell.format.horizontalAlignment = 'Left';
+                        }
+
+                        // 1b) Center + middle align values in Table1 (Rows 4-8, Col B..last)
+                        const table1StartAbs = toAbs(table1SnoRel);
+                        const table1EndAbs = toAbs(table1NewestRel);
+                        if (table1StartAbs >= 0 && table1EndAbs >= table1StartAbs && totalCols > 1) {
+                            const table1ValuesRng = sheet.getRangeByIndexes(
+                                table1StartAbs,
+                                1,
+                                (table1EndAbs - table1StartAbs + 1),
+                                totalCols - 1
+                            );
+                            table1ValuesRng.format.horizontalAlignment = 'Center';
+                            table1ValuesRng.format.verticalAlignment = 'Center';
+                        }
+
+                        // 1c) Center + middle align values in Table2 (Row 13..end, Col A..last)
+                        const table2DataStartAbs = table2HeaderRowAbs >= 0 ? (table2HeaderRowAbs + 1) : -1;
+                        const totalRowsAbs = dataStartRowIndex + (normalizedRows?.length || 0);
+                        if (table2DataStartAbs >= 0 && table2DataStartAbs < totalRowsAbs && totalCols > 0) {
+                            const table2ValuesRng = sheet.getRangeByIndexes(
+                                table2DataStartAbs,
+                                0,
+                                totalRowsAbs - table2DataStartAbs,
+                                totalCols
+                            );
+                            table2ValuesRng.format.horizontalAlignment = 'Center';
+                            table2ValuesRng.format.verticalAlignment = 'Center';
+                        }
+
                         // 2) Blue background for Table1 label cells in column A
                         const table1BlueRowsAbs = [
                             toAbs(table1SnoRel),
@@ -819,7 +867,48 @@ export class ExcelIntegrationManager {
                     const colBWidth = Math.round(11 * POINTS_PER_EXCEL_CHAR);
                     sheet.getRangeByIndexes(0, 0, 1, 1).getEntireColumn().format.columnWidth = colAWidth;
                     sheet.getRangeByIndexes(0, 1, 1, 1).getEntireColumn().format.columnWidth = colBWidth;
-                } catch (_e) {}
+                    // Override: Set Column B and Column C width to 17.50 units
+                    const width175 = Math.round(17.5 * POINTS_PER_EXCEL_CHAR);
+                    sheet.getRangeByIndexes(0, 1, 1, 1).getEntireColumn().format.columnWidth = width175; // Column B
+                    sheet.getRangeByIndexes(0, 2, 1, 1).getEntireColumn().format.columnWidth = width175; // Column C
+				} catch (_e) {}
+
+				// Insert a 2D line chart for RAW readings over frozen rows (1-13)
+				// X axis: Column A (Timestamp) starting from data row; Y axis: Columns C..last
+				try {
+					if (isRawOutput && Array.isArray(normalizedRows) && normalizedRows.length > 0 && Math.max(1, targetColCount) > 2) {
+						// Remove existing chart if present to avoid duplicates on repeated exports
+						try {
+							const existingChart = sheet.charts.getItemOrNullObject('RawReadingsChart');
+							existingChart.load('name');
+							await context.sync();
+							if (!existingChart.isNullObject) {
+								existingChart.delete();
+								await context.sync();
+							}
+						} catch (_e) {}
+
+						const totalCols = Math.max(1, targetColCount);
+						const seriesStartCol = 2; // Column C
+						const seriesCols = Math.max(0, totalCols - seriesStartCol);
+						if (seriesCols > 0) {
+							// Include header row for series names + all data rows
+							const seriesRange = sheet.getRangeByIndexes(headerRowIndex, seriesStartCol, (normalizedRows.length + 1), seriesCols);
+							const chart = sheet.charts.add(Excel.ChartType.line, seriesRange, Excel.ChartSeriesBy.columns);
+							chart.name = 'RawReadingsChart';
+
+							// Set categories from Timestamp column (A) for all series
+							const categoriesRange = sheet.getRangeByIndexes(dataStartRowIndex, 0, normalizedRows.length, 1);
+							try { chart.axes.categoryAxis.setCategoryNames(categoriesRange); } catch (_e) {}
+
+							// Legend to the right as requested
+							try { chart.legend.position = Excel.ChartLegendPosition.right; } catch (_e) {}
+
+							// Position chart within frozen header area (rows 1-13)
+							try { chart.setPosition('A1', 'H13'); } catch (_e) {}
+						}
+					}
+				} catch (_e) {}
 
                 await context.sync();
                 logMessage('info', 'Minimal readings export done', { sheet: sheetName, rows: normalizedRows.length, columns: Math.max(1, targetColCount) });

@@ -939,7 +939,68 @@ export class ExcelIntegrationManager {
 
 							// Set categories from Timestamp column (A) for all series
 							const categoriesRange = sheet.getRangeByIndexes(dataStartRowIndex, 0, normalizedRows.length, 1);
-							try { chart.axes.categoryAxis.setCategoryNames(categoriesRange); } catch (_e) {}
+						try { chart.axes.categoryAxis.setCategoryNames(categoriesRange); } catch (_e) {}
+
+						// Ensure the horizontal axis treats categories as a time series
+						try { chart.axes.categoryAxis.categoryType = Excel.ChartAxisCategoryType.timeSeries; } catch (_e) {}
+						
+						// Adapt axis scale/format to the data span (seconds → minutes → hours → days)
+						try {
+							// Extract OADate timestamps from the first column of written rows
+							const tsValues = Array.isArray(normalizedRows)
+								? normalizedRows
+									.map(r => (Array.isArray(r) ? r[0] : null))
+									.filter(v => typeof v === 'number' && isFinite(v))
+								: [];
+							if (tsValues.length >= 2) {
+								const minOA = Math.min(...tsValues);
+								const maxOA = Math.max(...tsValues);
+								const totalSeconds = Math.max(1, (maxOA - minOA) * 86400);
+								const approxTicks = 8; // aim ~8-10 ticks for readability
+								const niceStep = (target) => {
+									const t = Math.max(1, target);
+									const p = Math.pow(10, Math.floor(Math.log10(t)));
+									const n = t / p;
+									let s = 1;
+									if (n <= 1) s = 1; else if (n <= 2) s = 2; else if (n <= 5) s = 5; else s = 10;
+									return Math.max(1, Math.round(s * p));
+								};
+								let baseUnit = Excel.ChartAxisTimeUnit.seconds;
+								let majorScale = Excel.ChartAxisTimeUnit.seconds;
+								let majorUnit = 1;
+								let axisFormat = '[$-en-US]hh:mm:ss';
+								if (totalSeconds <= 5 * 60) { // ≤ 5 minutes
+									baseUnit = Excel.ChartAxisTimeUnit.seconds;
+									majorScale = Excel.ChartAxisTimeUnit.seconds;
+									majorUnit = niceStep(Math.round(totalSeconds / approxTicks));
+									axisFormat = '[$-en-US]hh:mm:ss';
+								} else if (totalSeconds <= 2 * 60 * 60) { // ≤ 2 hours
+									baseUnit = Excel.ChartAxisTimeUnit.minutes;
+									majorScale = Excel.ChartAxisTimeUnit.minutes;
+									majorUnit = niceStep(Math.round((totalSeconds / 60) / approxTicks));
+									axisFormat = '[$-en-US]hh:mm';
+								} else if (totalSeconds <= 2 * 24 * 60 * 60) { // ≤ 2 days
+									baseUnit = Excel.ChartAxisTimeUnit.hours;
+									majorScale = Excel.ChartAxisTimeUnit.hours;
+									majorUnit = niceStep(Math.round((totalSeconds / 3600) / approxTicks));
+									axisFormat = '[$-en-US]mm/dd hh:mm';
+								} else { // > 2 days
+									baseUnit = Excel.ChartAxisTimeUnit.days;
+									majorScale = Excel.ChartAxisTimeUnit.days;
+									majorUnit = Math.max(1, Math.round((totalSeconds / 86400) / approxTicks));
+									axisFormat = '[$-en-US]mm/dd/yyyy';
+								}
+
+								// Apply adaptive axis configuration (best-effort; API support varies)
+								try { chart.axes.categoryAxis.baseTimeUnit = baseUnit; } catch (_e) {}
+								try { chart.axes.categoryAxis.majorUnitScale = majorScale; } catch (_e) {}
+								try { chart.axes.categoryAxis.majorUnit = majorUnit; } catch (_e) {}
+								try { chart.axes.categoryAxis.numberFormat = axisFormat; } catch (_e) {}
+								// Ensure full-span coverage if supported
+								try { chart.axes.categoryAxis.minimum = minOA; } catch (_e) {}
+								try { chart.axes.categoryAxis.maximum = maxOA; } catch (_e) {}
+							}
+						} catch (_e) {}
 
 							// Legend to the right as requested
 							try { chart.legend.position = Excel.ChartLegendPosition.right; } catch (_e) {}

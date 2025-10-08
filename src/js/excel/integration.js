@@ -937,39 +937,39 @@ export class ExcelIntegrationManager {
 							const chart = sheet.charts.add(Excel.ChartType.line, seriesRange, Excel.ChartSeriesBy.columns);
 							chart.name = 'RawReadingsChart';
 
+							// Hide chart title
+							try { chart.title.visible = false; } catch (_e) {}
+
 							// Set categories from Timestamp column (A) for all series
 							const categoriesRange = sheet.getRangeByIndexes(dataStartRowIndex, 0, normalizedRows.length, 1);
 						try { chart.axes.categoryAxis.setCategoryNames(categoriesRange); } catch (_e) {}
 
-						// Use a date axis; compute adaptive major unit (in days, fractional allowed) and label format
-						try { chart.axes.categoryAxis.categoryType = Excel.ChartAxisCategoryType.dateAxis; } catch (_e) {}
+						// Build preformatted string labels from the Timestamp (OADate) values and force text axis
 						try {
-							const tsValues = Array.isArray(normalizedRows)
-								? normalizedRows.map(r => (Array.isArray(r) ? r[0] : null)).filter(v => typeof v === 'number' && isFinite(v))
-								: [];
-							if (tsValues.length >= 2) {
-								const minOA = Math.min(...tsValues);
-								const maxOA = Math.max(...tsValues);
-								const spanDays = Math.max(1e-9, maxOA - minOA);
-								const approxTicks = 8;
-								let majorUnitDays = spanDays / approxTicks;
-								// Clamp to sensible bounds (>= 1 minute)
-								majorUnitDays = Math.max(majorUnitDays, (1 / 1440));
-								// Pick label format by span size
-								let axisFormat = '[$-en-US]hh:mm:ss';
-								if (spanDays > 2) axisFormat = '[$-en-US]mm/dd/yyyy';
-								else if (spanDays > 1) axisFormat = '[$-en-US]mm/dd hh:mm';
-								else if (spanDays > (1 / 24)) axisFormat = '[$-en-US]hh:mm';
-
-								try { chart.axes.categoryAxis.minimum = minOA; } catch (_e) {}
-								try { chart.axes.categoryAxis.maximum = maxOA; } catch (_e) {}
-								try { chart.axes.categoryAxis.majorUnit = majorUnitDays; } catch (_e) {}
-								try { chart.axes.categoryAxis.numberFormat = axisFormat; } catch (_e) {}
-							}
+							const oaToDate = (oa) => new Date((oa - 25569) * 86400000);
+							const toLabelString = (d) => {
+								if (!(d instanceof Date) || isNaN(d.getTime())) return '';
+								const pad = (n) => String(n).padStart(2, '0');
+								const mm = pad(d.getMonth() + 1);
+								const dd = pad(d.getDate());
+								const yyyy = d.getFullYear();
+								let hrs = d.getHours();
+								const ampm = hrs >= 12 ? 'PM' : 'AM';
+								let h12 = hrs % 12; if (h12 === 0) h12 = 12;
+								const hh = pad(h12);
+								const mi = pad(d.getMinutes());
+								const ss = pad(d.getSeconds());
+								return `${mm}/${dd}/${yyyy} ${hh}:${mi}:${ss} ${ampm}`;
+							};
+							const labelStrings = (Array.isArray(normalizedRows) ? normalizedRows : []).map(r => {
+								const v = Array.isArray(r) ? r[0] : '';
+								if (typeof v === 'number' && isFinite(v)) return toLabelString(oaToDate(v));
+								if (v instanceof Date) return toLabelString(v);
+								return String(v ?? '');
+							});
+							try { chart.axes.categoryAxis.categoryType = Excel.ChartAxisCategoryType.textAxis; } catch (_e) {}
+							try { chart.axes.categoryAxis.setCategoryNames(labelStrings.map(s => [s])); } catch (_e) {}
 						} catch (_e) {}
-
-						// Set chart title as requested
-						try { chart.title.text = `Trend for ${sheetName}`; chart.title.visible = true; } catch (_e) {}
 
 							// Legend to the right as requested
 							try { chart.legend.position = Excel.ChartLegendPosition.right; } catch (_e) {}

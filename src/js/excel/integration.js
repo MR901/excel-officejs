@@ -976,6 +976,11 @@ export class ExcelIntegrationManager {
 
 							// Position chart within frozen header area (rows 1-13)
 							try { chart.setPosition('A1', 'H13'); } catch (_e) {}
+
+							// Re-assert legend settings after positioning to avoid implicit resets
+							try { chart.legend.visible = true; } catch (_e) {}
+							try { chart.legend.overlay = false; } catch (_e) {}
+							try { chart.legend.position = Excel.ChartLegendPosition.right; } catch (_e) {}
 						}
 					}
 				} catch (_e) {}

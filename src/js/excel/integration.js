@@ -534,6 +534,10 @@ export class ExcelIntegrationManager {
 
             // Build table based on outputType
             let headers, rows;
+            // Hoisted vars used later for formatting combined output
+            let assetsCount = 0;
+            let oldestRowIndex = -1;
+            let newestRowIndex = -1;
             const ot = exportParams.data.outputType || 'raw';
             if (ot === 'combined') {
                 // Build upgraded combined output across ALL assets for the active instance
@@ -589,8 +593,39 @@ export class ExcelIntegrationManager {
 
                 // Per-asset horizontal summary rows
                 const toDate = (ts) => {
-                    if (!ts) return '';
-                    const d = this.parseFoglampTimestamp(ts) || new Date(ts);
+                    if (ts == null || ts === '') return '';
+                    let d = null;
+                    if (typeof ts === 'string') {
+                        d = this.parseFoglampTimestamp(ts) || new Date(ts);
+                    } else if (typeof ts === 'number') {
+                        // Handle common numeric timestamp encodings
+                        // 1) Microseconds since epoch (e.g., 1.6e15) → ms
+                        // 2) Milliseconds since epoch (>1e12 but <1e15) → ms
+                        // 3) Seconds since epoch (~1e9..1e10) → *1000
+                        // 4) Excel serial date (e.g., 45936.32) → convert from OADate to Date
+                        if (ts > 1e14) {
+                            // Likely microseconds
+                            d = new Date(Math.round(ts / 1000));
+                        } else if (ts > 1e12) {
+                            // Likely milliseconds
+                            d = new Date(ts);
+                        } else if (ts > 1e9) {
+                            // Likely seconds
+                            d = new Date(ts * 1000);
+                        } else if (ts > 25569 && ts < 100000) {
+                            // Looks like an Excel serial date already
+                            const ms = (ts - 25569) * 86400000;
+                            d = new Date(ms);
+                        } else {
+                            // Fallback best effort
+                            d = new Date(ts);
+                        }
+                    } else if (typeof ts === 'object') {
+                        // Support nested timestamp containers
+                        const inner = ts.timestamp || ts.user_ts || ts.ts || ts.time || ts.date || '';
+                        if (inner) return toDate(inner);
+                        return '';
+                    }
                     if (!(d instanceof Date) || isNaN(d.getTime())) return '';
                     return this.convertDateToOADate(d);
                 };
@@ -598,9 +633,9 @@ export class ExcelIntegrationManager {
                 const sNoRow = ['SNo.', ...perAssetData.map((_, idx) => idx + 1)];
                 const assetsRow = ['Assets', ...perAssetData.map((entry) => entry.assetName)];
                 const readingsRow = ['Readings', ...perAssetData.map((entry) => entry.readingCount)];
-                const assetsCount = perAssetData.length;
-                const oldestRowIndex = rows.length + 3; // sNoRow(0), assetsRow(1), readingsRow(2), then oldest at 3
-                const newestRowIndex = rows.length + 4; // newest follows oldest
+                assetsCount = perAssetData.length;
+                oldestRowIndex = rows.length + 3; // sNoRow(0), assetsRow(1), readingsRow(2), then oldest at 3
+                newestRowIndex = rows.length + 4; // newest follows oldest
                 // Helper to robustly extract oldest/newest timestamp from varying API shapes
                 const extractTimestamp = (node, which) => {
                     const obj = Array.isArray(node) ? (node[0] || {}) : (node || {});
@@ -617,6 +652,11 @@ export class ExcelIntegrationManager {
                                 return toDate(v);
                             }
                         }
+                    }
+                    // Fallback: sometimes timestamp fields are at the top level
+                    if (obj && typeof obj === 'object') {
+                        const fallback = obj.timestamp || obj.user_ts || obj.ts || obj.time || obj.date || '';
+                        if (fallback) return toDate(fallback);
                     }
                     return '';
                 };

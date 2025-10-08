@@ -971,16 +971,16 @@ export class ExcelIntegrationManager {
 							try { chart.axes.categoryAxis.setCategoryNames(labelStrings.map(s => [s])); } catch (_e) {}
 						} catch (_e) {}
 
-							// Legend to the right as requested
-							try { chart.legend.position = Excel.ChartLegendPosition.right; } catch (_e) {}
+							// Legend to the right as requested (use literal to avoid enum mismatch)
+							try { chart.legend.position = 'Right'; } catch (_e1) { try { chart.legend.position = 'right'; } catch (_e2) {} }
 
-							// Position chart within frozen header area (rows 1-13)
-							try { chart.setPosition('A1', 'H13'); } catch (_e) {}
+							// Position chart within frozen header area (rows 1-13) and give extra width for right legend
+							try { chart.setPosition('A1', 'L13'); } catch (_e) {}
 
 							// Re-assert legend settings after positioning to avoid implicit resets
 							try { chart.legend.visible = true; } catch (_e) {}
 							try { chart.legend.overlay = false; } catch (_e) {}
-							try { chart.legend.position = Excel.ChartLegendPosition.right; } catch (_e) {}
+							try { chart.legend.position = 'Right'; } catch (_e1) { try { chart.legend.position = 'right'; } catch (_e2) {} }
 						}
 					}
 				} catch (_e) {}

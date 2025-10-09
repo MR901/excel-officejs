@@ -105,6 +105,82 @@ export async function removeChartIfExists(sheet, chartName, context) {
 }
 
 /**
+ * Parse an Excel A1-style cell reference into 0-based row/column indices.
+ * @param {string} cellRef - e.g., "A1", "H13"
+ * @returns {{rowIndex: number, colIndex: number}}
+ */
+function parseCellRef(cellRef) {
+    const m = String(cellRef || '').trim().match(/^([A-Za-z]+)(\d+)$/);
+    if (!m) return { rowIndex: 0, colIndex: 0 };
+    const colLetters = m[1].toUpperCase();
+    const rowIndex = Math.max(0, parseInt(m[2], 10) - 1);
+    let colIndex = 0;
+    for (let i = 0; i < colLetters.length; i++) {
+        colIndex = colIndex * 26 + (colLetters.charCodeAt(i) - 64);
+    }
+    colIndex -= 1;
+    return { rowIndex, colIndex };
+}
+
+/**
+ * Resize the chart to span exactly from startCell to endCell by computing
+ * aggregate column widths and row heights in points, then applying width/height.
+ * This is a reliable fallback when setPosition's end anchor isn't honored by host.
+ * @param {Object} sheet - Excel worksheet
+ * @param {Object} chart - Excel chart
+ * @param {Object} context - Excel context
+ * @param {string} startCell - e.g., "A1"
+ * @param {string} endCell - e.g., "H13"
+ */
+async function resizeChartToCellSpan(sheet, chart, context, startCell, endCell) {
+    try {
+        const { rowIndex: rowStart, colIndex: colStart } = parseCellRef(startCell);
+        const { rowIndex: rowEnd, colIndex: colEnd } = parseCellRef(endCell);
+
+        if (rowEnd < rowStart || colEnd < colStart) return;
+
+        // Load widths for columns [colStart..colEnd]
+        const colFormats = [];
+        for (let c = colStart; c <= colEnd; c++) {
+            const fmt = sheet.getRangeByIndexes(0, c, 1, 1).getEntireColumn().format;
+            fmt.load('columnWidth');
+            colFormats.push(fmt);
+        }
+
+        // Load heights for rows [rowStart..rowEnd]
+        const rowFormats = [];
+        for (let r = rowStart; r <= rowEnd; r++) {
+            const fmt = sheet.getRangeByIndexes(r, 0, 1, 1).getEntireRow().format;
+            fmt.load('rowHeight');
+            rowFormats.push(fmt);
+        }
+
+        await context.sync();
+
+        // Sum up widths/heights; use safe fallbacks when values are not numbers
+        let totalWidth = 0;
+        for (const fmt of colFormats) {
+            const w = typeof fmt.columnWidth === 'number' && isFinite(fmt.columnWidth) ? fmt.columnWidth : 64; // ~default
+            totalWidth += w;
+        }
+
+        let totalHeight = 0;
+        for (const fmt of rowFormats) {
+            const h = typeof fmt.rowHeight === 'number' && isFinite(fmt.rowHeight) ? fmt.rowHeight : 15; // ~default
+            totalHeight += h;
+        }
+
+        // Apply computed dimensions (points)
+        try { chart.width = Math.max(50, Math.round(totalWidth)); } catch (_e) {}
+        try { chart.height = Math.max(50, Math.round(totalHeight)); } catch (_e) {}
+
+        await context.sync();
+    } catch (error) {
+        console.warn('Failed to resize chart to cell span:', error.message);
+    }
+}
+
+/**
  * Configuration options for chart creation
  * @typedef {Object} ChartConfig
  * @property {string} name - Unique chart name (required)
@@ -265,7 +341,9 @@ export async function createExcelChart(sheet, context, dataRange, seriesBy, conf
             }
         }
         
-        // Step 7: Position the chart
+        // Step 7: Position the chart and enforce desired span
+        let startCellForSizing = null;
+        let endCellForSizing = null;
         if (position) {
             try {
                 if (typeof position === 'string') {
@@ -275,22 +353,33 @@ export async function createExcelChart(sheet, context, dataRange, seriesBy, conf
                         const startRange = sheet.getRange(start.trim());
                         const endRange = sheet.getRange(end.trim());
                         chart.setPosition(startRange, endRange);
+                        startCellForSizing = start.trim();
+                        endCellForSizing = end.trim();
                     } else if (start) {
                         const startRange = sheet.getRange(start.trim());
                         chart.setPosition(startRange);
+                        startCellForSizing = start.trim();
                     }
                 } else if (position.startCell && position.endCell) {
                     // Object format: { startCell: 'A1', endCell: 'H13' }
                     const startRange = sheet.getRange(String(position.startCell).trim());
                     const endRange = sheet.getRange(String(position.endCell).trim());
                     chart.setPosition(startRange, endRange);
+                    startCellForSizing = String(position.startCell).trim();
+                    endCellForSizing = String(position.endCell).trim();
                 } else if (position.startCell) {
                     const startRange = sheet.getRange(String(position.startCell).trim());
                     chart.setPosition(startRange);
+                    startCellForSizing = String(position.startCell).trim();
                 }
             } catch (error) {
                 console.warn('Failed to position chart:', error.message);
             }
+        }
+
+        // Enforce width/height based on cell span if both corners are provided
+        if (startCellForSizing && endCellForSizing) {
+            await resizeChartToCellSpan(sheet, chart, context, startCellForSizing, endCellForSizing);
         }
         
         // Step 8: Re-assert legend and category axis settings after positioning
@@ -312,11 +401,23 @@ export async function createExcelChart(sheet, context, dataRange, seriesBy, conf
         }
         
         // Re-assert category axis after positioning (critical for timestamp labels)
-        if (categoryAxis && categoryAxis.labels && Array.isArray(categoryAxis.labels)) {
+        if (categoryAxis) {
             try {
-                chart.axes.categoryAxis.setCategoryNames(categoryAxis.labels);
+                const axisTypeMap = {
+                    'textAxis': Excel.ChartAxisCategoryType.textAxis,
+                    'dateAxis': Excel.ChartAxisCategoryType.dateAxis,
+                    'automatic': Excel.ChartAxisCategoryType.automatic
+                };
+                const reAxisType = axisTypeMap[categoryAxis.type || 'textAxis'] || Excel.ChartAxisCategoryType.textAxis;
+                try { chart.axes.categoryAxis.categoryType = reAxisType; } catch (_e) {}
+
+                if (categoryAxis.labels && Array.isArray(categoryAxis.labels)) {
+                    chart.axes.categoryAxis.setCategoryNames(categoryAxis.labels);
+                } else if (categoryAxis.range) {
+                    chart.axes.categoryAxis.setCategoryNames(categoryAxis.range);
+                }
             } catch (error) {
-                console.warn('Failed to re-assert category labels after positioning:', error.message);
+                console.warn('Failed to re-assert category axis after positioning:', error.message);
             }
         }
         

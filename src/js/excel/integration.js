@@ -899,6 +899,10 @@ export class ExcelIntegrationManager {
                     const width175 = Math.round(17.5 * POINTS_PER_EXCEL_CHAR);
                     sheet.getRangeByIndexes(0, 1, 1, 1).getEntireColumn().format.columnWidth = width175; // Column B
                     sheet.getRangeByIndexes(0, 2, 1, 1).getEntireColumn().format.columnWidth = width175; // Column C
+                    // Ensure columns D through H have sufficient width for chart anchoring to H13
+                    for (let c = 3; c <= 7; c++) {
+                        sheet.getRangeByIndexes(0, c, 1, 1).getEntireColumn().format.columnWidth = width175;
+                    }
                 } catch (_e) {}
 
                 // Insert a 2D line chart for RAW readings over frozen rows (1-13)

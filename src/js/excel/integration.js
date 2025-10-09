@@ -902,7 +902,7 @@ export class ExcelIntegrationManager {
                 } catch (_e) {}
 
                 // Insert a 2D line chart for RAW readings over frozen rows (1-13)
-                // X axis: Column A (Timestamp) starting from data row; Y axis: Columns C..last
+                // X axis: Column A (Timestamp) with formatted labels; Y axis: Columns C..last
                 try {
                     if (isRawOutput && Array.isArray(normalizedRows) && normalizedRows.length > 0 && Math.max(1, targetColCount) > 2) {
                         await createTimeSeriesChart(sheet, context, {
@@ -912,7 +912,7 @@ export class ExcelIntegrationManager {
                             seriesStartCol: 2, // Column C
                             totalCols: Math.max(1, targetColCount),
                             normalizedRows,
-                            position: 'A1:L13',
+                            position: 'A1:H13', // Chart spans A1 to H13 (rows 1-13, columns A-H)
                             title: null, // No title
                             legendPosition: 'Right',
                             dateFormat: 'datetime'

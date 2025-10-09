@@ -114,7 +114,7 @@ export async function removeChartIfExists(sheet, chartName, context) {
  * @property {string} legendPosition - Legend position: 'Right', 'Left', 'Top', 'Bottom', 'None' (default: 'Right')
  * @property {boolean} legendVisible - Show legend (default: true)
  * @property {boolean} legendOverlay - Overlay legend on chart (default: false)
- * @property {string} position - Position string like 'A1:L13' or object {startCell: 'A1', endCell: 'L13'}
+ * @property {string} position - Position string like 'A1:H13' or object {startCell: 'A1', endCell: 'H13'}
  * @property {Object} categoryAxis - Category axis configuration
  * @property {string} categoryAxis.type - Axis type: 'textAxis', 'dateAxis', 'automatic' (default: 'textAxis')
  * @property {Array<Array<string>>} categoryAxis.labels - Custom labels as 2D array [[label1], [label2], ...]
@@ -144,7 +144,7 @@ export async function removeChartIfExists(sheet, chartName, context) {
  *     type: 'line',
  *     showTitle: false,
  *     legendPosition: 'Right',
- *     position: { startCell: 'A1', endCell: 'L13' },
+ *     position: { startCell: 'A1', endCell: 'H13' },
  *     categoryAxis: {
  *         type: 'textAxis',
  *         labels: categoryLabels
@@ -269,21 +269,32 @@ export async function createExcelChart(sheet, context, dataRange, seriesBy, conf
         if (position) {
             try {
                 if (typeof position === 'string') {
-                    // Format: "A1:L13" - split into start and end
+                    // Format: "A1:H13" - split into start and end
                     const [start, end] = position.split(':');
                     if (start && end) {
-                        chart.setPosition(start, end);
+                        const startRange = sheet.getRange(start.trim());
+                        const endRange = sheet.getRange(end.trim());
+                        chart.setPosition(startRange, endRange);
+                    } else if (start) {
+                        const startRange = sheet.getRange(start.trim());
+                        chart.setPosition(startRange);
                     }
                 } else if (position.startCell && position.endCell) {
-                    // Object format: { startCell: 'A1', endCell: 'L13' }
-                    chart.setPosition(position.startCell, position.endCell);
+                    // Object format: { startCell: 'A1', endCell: 'H13' }
+                    const startRange = sheet.getRange(String(position.startCell).trim());
+                    const endRange = sheet.getRange(String(position.endCell).trim());
+                    chart.setPosition(startRange, endRange);
+                } else if (position.startCell) {
+                    const startRange = sheet.getRange(String(position.startCell).trim());
+                    chart.setPosition(startRange);
                 }
             } catch (error) {
                 console.warn('Failed to position chart:', error.message);
             }
         }
         
-        // Step 8: Re-assert legend settings after positioning (some Excel versions reset this)
+        // Step 8: Re-assert legend and category axis settings after positioning
+        // (some Excel versions reset these when setPosition is called)
         try {
             chart.legend.visible = legendVisible;
             chart.legend.overlay = legendOverlay;
@@ -298,6 +309,15 @@ export async function createExcelChart(sheet, context, dataRange, seriesBy, conf
             }
         } catch (error) {
             // Silent fail - non-critical
+        }
+        
+        // Re-assert category axis after positioning (critical for timestamp labels)
+        if (categoryAxis && categoryAxis.labels && Array.isArray(categoryAxis.labels)) {
+            try {
+                chart.axes.categoryAxis.setCategoryNames(categoryAxis.labels);
+            } catch (error) {
+                console.warn('Failed to re-assert category labels after positioning:', error.message);
+            }
         }
         
         await context.sync();
@@ -323,7 +343,7 @@ export async function createExcelChart(sheet, context, dataRange, seriesBy, conf
  * @param {number} config.seriesStartCol - Column index where series data starts (0-based, e.g., 2 for column C)
  * @param {number} config.totalCols - Total number of columns
  * @param {Array} config.normalizedRows - Data rows for label extraction
- * @param {string} config.position - Chart position string 'A1:L13'
+ * @param {string} config.position - Chart position string (default: 'A1:H13')
  * @param {string} config.title - Optional chart title
  * @param {string} config.legendPosition - Legend position (default: 'Right')
  * @param {string} config.dateFormat - Date format: 'datetime', 'date', 'time' (default: 'datetime')
@@ -337,7 +357,7 @@ export async function createTimeSeriesChart(sheet, context, config) {
         seriesStartCol,
         totalCols,
         normalizedRows,
-        position = 'A1:L13',
+        position = 'A1:H13',
         title = null,
         legendPosition = 'Right',
         dateFormat = 'datetime'

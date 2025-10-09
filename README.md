@@ -67,14 +67,19 @@ node proxy_server.js
 
 ## 📖 **Documentation**
 
-- **[User Guide](docs/user-guide.rst)** - Installation, usage, common tasks
-- **[API Reference](docs/api-reference.rst)** - JavaScript API documentation
+- **[Docs Index](docs/README.md)** – Start here
+- **[User Guide](docs/USER_GUIDE.md)** – Installation, usage, common tasks
+- **[Architecture Overview](docs/ARCHITECTURE.md)** – How it’s organized
+- **[Excel Integration](docs/EXCEL_INTEGRATION.md)** – Exports, formatting, charts
+- **[API Reference](docs/API_REFERENCE.md)** – JavaScript APIs
+- **[UI Modules and Events](docs/UI.md)** – UI surfaces and events
+- **[Chart Utilities Guide](docs/CHART_UTILITIES_GUIDE.md)** – Developer guide for charts
 
 ## 📁 **Project Structure**
 
 ```
 excel-officejs/
-├── docs/                   # RST documentation
+├── docs/                   # Documentation (Markdown)
 ├── src/js/                 # Modular JavaScript code
 │   ├── core/              # Core functionality (API, storage, config)
 │   ├── ui/                # UI components (badges, console, instances)
@@ -93,11 +98,8 @@ excel-officejs/
 **Organized Namespace**:
 ```javascript
 window.FogLAMP = {
-    api         // Unified API manager
-    storage     // Data management
-    excel       // Excel integration
-    errors      // Error handling
-    // ... and more
+    api, storage, excel, errors,
+    badges, instances, ping, console, utils
 }
 ```
 
@@ -133,17 +135,13 @@ Zero linting errors, full manual test coverage:
 
 ## 🤝 **Contributing**
 
-See [Developer Guide](docs/developer-guide.rst) for:
-- Development setup
-- Code style guidelines
-- Pull request process
-- Testing procedures
+- See docs: [Docs Index](docs/README.md) → Architecture, API Reference, and Excel Integration
 
 ## 📞 **Support**
 
 - **Provider**: Dianomic Systems
-- **Documentation**: https://foglamp.dianomic.com/
-- **Contact**: https://dianomic.com/contact-us/
+- **Documentation**: `https://foglamp.dianomic.com/`
+- **Contact**: `https://dianomic.com/contact-us/`
 
 ## 📄 **License**
 

@@ -7,6 +7,7 @@ import { getActiveInstanceWithMeta, getInstances } from '../core/storage.js';
 import { getDisplayName, getColumnLetter } from '../core/utils.js';
 import { logMessage } from '../ui/console.js';
 import { elements } from '../ui/elements.js';
+import { createTimeSeriesChart } from './chart-utils.js';
 
 /**
  * Excel Integration Manager Class
@@ -30,19 +31,6 @@ export class ExcelIntegrationManager {
         };
     }
 
-    /**
-     * Initialize the Excel integration manager
-     * Called during system startup
-     */
-    initialize() {
-        logMessage('info', 'Initializing Excel integration manager');
-        
-        // Check if Excel API is available
-        const excelAvailable = typeof Excel !== 'undefined' && typeof Excel.run === 'function';
-        logMessage('info', `Excel API available: ${excelAvailable}`);
-        
-        logMessage('info', 'Excel integration manager initialized');
-    }
 
     /**
      * Ensure worksheet exists, create if needed
@@ -911,79 +899,28 @@ export class ExcelIntegrationManager {
                     const width175 = Math.round(17.5 * POINTS_PER_EXCEL_CHAR);
                     sheet.getRangeByIndexes(0, 1, 1, 1).getEntireColumn().format.columnWidth = width175; // Column B
                     sheet.getRangeByIndexes(0, 2, 1, 1).getEntireColumn().format.columnWidth = width175; // Column C
-				} catch (_e) {}
+                } catch (_e) {}
 
-				// Insert a 2D line chart for RAW readings over frozen rows (1-13)
-				// X axis: Column A (Timestamp) starting from data row; Y axis: Columns C..last
-				try {
-					if (isRawOutput && Array.isArray(normalizedRows) && normalizedRows.length > 0 && Math.max(1, targetColCount) > 2) {
-						// Remove existing chart if present to avoid duplicates on repeated exports
-						try {
-							const existingChart = sheet.charts.getItemOrNullObject('RawReadingsChart');
-							existingChart.load('name');
-							await context.sync();
-							if (!existingChart.isNullObject) {
-								existingChart.delete();
-								await context.sync();
-							}
-						} catch (_e) {}
-
-						const totalCols = Math.max(1, targetColCount);
-						const seriesStartCol = 2; // Column C
-						const seriesCols = Math.max(0, totalCols - seriesStartCol);
-						if (seriesCols > 0) {
-							// Include header row for series names + all data rows
-							const seriesRange = sheet.getRangeByIndexes(headerRowIndex, seriesStartCol, (normalizedRows.length + 1), seriesCols);
-							const chart = sheet.charts.add(Excel.ChartType.line, seriesRange, Excel.ChartSeriesBy.columns);
-							chart.name = 'RawReadingsChart';
-
-							// Hide chart title
-							try { chart.title.visible = false; } catch (_e) {}
-
-							// Set categories from Timestamp column (A) for all series
-							const categoriesRange = sheet.getRangeByIndexes(dataStartRowIndex, 0, normalizedRows.length, 1);
-						try { chart.axes.categoryAxis.setCategoryNames(categoriesRange); } catch (_e) {}
-
-						// Build preformatted string labels from the Timestamp (OADate) values and force text axis
-						try {
-							const oaToDate = (oa) => new Date((oa - 25569) * 86400000);
-							const toLabelString = (d) => {
-								if (!(d instanceof Date) || isNaN(d.getTime())) return '';
-								const pad = (n) => String(n).padStart(2, '0');
-								const mm = pad(d.getMonth() + 1);
-								const dd = pad(d.getDate());
-								const yyyy = d.getFullYear();
-								let hrs = d.getHours();
-								const ampm = hrs >= 12 ? 'PM' : 'AM';
-								let h12 = hrs % 12; if (h12 === 0) h12 = 12;
-								const hh = pad(h12);
-								const mi = pad(d.getMinutes());
-								const ss = pad(d.getSeconds());
-								return `${mm}/${dd}/${yyyy} ${hh}:${mi}:${ss} ${ampm}`;
-							};
-							const labelStrings = (Array.isArray(normalizedRows) ? normalizedRows : []).map(r => {
-								const v = Array.isArray(r) ? r[0] : '';
-								if (typeof v === 'number' && isFinite(v)) return toLabelString(oaToDate(v));
-								if (v instanceof Date) return toLabelString(v);
-								return String(v ?? '');
-							});
-							try { chart.axes.categoryAxis.categoryType = Excel.ChartAxisCategoryType.textAxis; } catch (_e) {}
-							try { chart.axes.categoryAxis.setCategoryNames(labelStrings.map(s => [s])); } catch (_e) {}
-						} catch (_e) {}
-
-							// Legend to the right as requested (use literal to avoid enum mismatch)
-							try { chart.legend.position = 'Right'; } catch (_e1) { try { chart.legend.position = 'right'; } catch (_e2) {} }
-
-							// Position chart within frozen header area (rows 1-13) and give extra width for right legend
-							try { chart.setPosition('A1', 'L13'); } catch (_e) {}
-
-							// Re-assert legend settings after positioning to avoid implicit resets
-							try { chart.legend.visible = true; } catch (_e) {}
-							try { chart.legend.overlay = false; } catch (_e) {}
-							try { chart.legend.position = 'Right'; } catch (_e1) { try { chart.legend.position = 'right'; } catch (_e2) {} }
-						}
-					}
-				} catch (_e) {}
+                // Insert a 2D line chart for RAW readings over frozen rows (1-13)
+                // X axis: Column A (Timestamp) starting from data row; Y axis: Columns C..last
+                try {
+                    if (isRawOutput && Array.isArray(normalizedRows) && normalizedRows.length > 0 && Math.max(1, targetColCount) > 2) {
+                        await createTimeSeriesChart(sheet, context, {
+                            name: 'RawReadingsChart',
+                            headerRowIndex,
+                            dataStartRowIndex,
+                            seriesStartCol: 2, // Column C
+                            totalCols: Math.max(1, targetColCount),
+                            normalizedRows,
+                            position: 'A1:L13',
+                            title: null, // No title
+                            legendPosition: 'Right',
+                            dateFormat: 'datetime'
+                        });
+                    }
+                } catch (error) {
+                    console.warn('Failed to create chart (non-critical):', error.message);
+                }
 
                 await context.sync();
                 logMessage('info', 'Minimal readings export done', { sheet: sheetName, rows: normalizedRows.length, columns: Math.max(1, targetColCount) });
